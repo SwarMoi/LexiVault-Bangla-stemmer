@@ -12,6 +12,8 @@ class BanglaStemmer:
     second_dict: Dict[str,List[str]]
     third_dict: Dict[str,List[str]]
     fourth_dict: Dict[str,List[str]]
+    fifth_dict: Dict[str,List[str]] # Swarnendu added
+    sixth_dict: Dict[str,List[str]] # Swarnendu added
 
     def __init__(self):
         self.grammarParser()
@@ -21,6 +23,8 @@ class BanglaStemmer:
         self.second_dict = grammar.con_rep_dict
         self.third_dict = grammar.obv_rep_dict
         self.fourth_dict = grammar.sp_final_dict
+        self.fifth_dict = grammar.der_initial_dict
+        self.sixth_dict = grammar.der_final_dict
 
     def checklen(self, word):
         skip_wrd = ['া', 'ি', 'ী', 'ু', 'ূ', 'ৃ', 'ে', 'ৈ', 'ো', 'ৌ']
@@ -45,7 +49,72 @@ class BanglaStemmer:
         wrd = word[0:initial_index]
         wrd += rplc
         return wrd
+    
+    ## Swarnendu Added --------------------------------
+    def apply_sixth_rule(self, word):
+        grep = word
+        for rules in self.sixth_dict:
+            result = re.search(rules, word)
+            if result:
+                print('applied fourth rules..')
+                initial_index = result.span()[0]
+                final_index = result.span()[1]
+                wordlen = len(word)
+                if final_index == wordlen:
+                    rigid_wordlen = self.checklen(grep[0:initial_index])
+                    if rigid_wordlen > 1:
+                        rplc = self.sixth_dict[rules][1]
+                        if '.' in rplc:
+                            grep = self.dot_replace(word, initial_index, rplc)
+                        else:
+                            grep = self.dirrect_replace(word, initial_index, rplc)
+                    elif rigid_wordlen == 1:
+                        rplc = self.sixth_dict[rules][0]
+                        if '.' in rplc:
+                            grep = self.dot_replace(word, initial_index, rplc)
+                        else:
+                            grep = self.dirrect_replace(word, initial_index, rplc)
+                    else:
+                        pass
+                else:
+                    pass
+                break
+            else:
+                pass
+        return grep
 
+    def apply_ffth_rule(self, word):
+        grep = word
+        for rules in self.fifth_dict:
+            result = re.search(rules, word)
+            if result:
+                print('applied fourth rules..')
+                initial_index = result.span()[0]
+                final_index = result.span()[1]
+                wordlen = len(word)
+                if final_index == wordlen:
+                    rigid_wordlen = self.checklen(grep[0:initial_index])
+                    if rigid_wordlen > 1:
+                        rplc = self.fifth_dict[rules][1]
+                        if '.' in rplc:
+                            grep = self.dot_replace(word, initial_index, rplc)
+                        else:
+                            grep = self.dirrect_replace(word, initial_index, rplc)
+                    elif rigid_wordlen == 1:
+                        rplc = self.fifth_dict[rules][0]
+                        if '.' in rplc:
+                            grep = self.dot_replace(word, initial_index, rplc)
+                        else:
+                            grep = self.dirrect_replace(word, initial_index, rplc)
+                    else:
+                        pass
+                else:
+                    pass
+                break
+            else:
+                pass
+        return grep
+    ## Swarnendu Added --------------------------------|
     def apply_frth_rule(self, word):
         grep = word
         for rules in self.fourth_dict:
