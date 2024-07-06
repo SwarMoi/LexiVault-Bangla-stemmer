@@ -23,8 +23,8 @@ class BanglaStemmer:
         self.second_dict = grammar.con_rep_dict
         self.third_dict = grammar.obv_rep_dict
         self.fourth_dict = grammar.sp_final_dict
-        self.fifth_dict = grammar.der_initial_dict
-        self.sixth_dict = grammar.der_final_dict
+        self.fifth_dict = grammar.der_initial_dict # Swarnendu added
+        self.sixth_dict = grammar.der_final_dict # Swarnendu added
 
     def checklen(self, word):
         skip_wrd = ['া', 'ি', 'ী', 'ু', 'ূ', 'ৃ', 'ে', 'ৈ', 'ো', 'ৌ']
@@ -50,13 +50,20 @@ class BanglaStemmer:
         wrd += rplc
         return wrd
     
-    ## Swarnendu Added --------------------------------
+    def dirrect_replace_prefix(self, word, final_index, rplc):
+        wordlength = len(word)
+        wrd = word[final_index:wordlength]
+        #wrd += rplc
+        rplc += wrd
+        return rplc
+    
+    # Swarnendu Added --------------------------------
     def apply_sixth_rule(self, word):
         grep = word
         for rules in self.sixth_dict:
             result = re.search(rules, word)
             if result:
-                print('applied fourth rules..')
+                print('applied sixth rules..')
                 initial_index = result.span()[0]
                 final_index = result.span()[1]
                 wordlen = len(word)
@@ -81,31 +88,43 @@ class BanglaStemmer:
                 break
             else:
                 pass
+        grep = self.apply_ffth_rule(grep)
         return grep
 
     def apply_ffth_rule(self, word):
         grep = word
         for rules in self.fifth_dict:
             result = re.search(rules, word)
+            #print('result')
+            #print(result)
             if result:
-                print('applied fourth rules..')
+                print('applied Fifth rules..')
                 initial_index = result.span()[0]
+                                
                 final_index = result.span()[1]
+                
                 wordlen = len(word)
-                if final_index == wordlen:
+                
+                if initial_index == 0:
+                    #print("In here!!!!")
                     rigid_wordlen = self.checklen(grep[0:initial_index])
-                    if rigid_wordlen > 1:
+                    rplc = self.fifth_dict[rules][1]
+                    #print(type(self.fifth_dict[rules][1]))
+                    if rigid_wordlen < 1:
+                        #print("In here IF")
                         rplc = self.fifth_dict[rules][1]
+                        print(rplc)
                         if '.' in rplc:
-                            grep = self.dot_replace(word, initial_index, rplc)
+                            grep = self.dot_replace(word, final_index, rplc)
                         else:
-                            grep = self.dirrect_replace(word, initial_index, rplc)
+                            #print("In here else")
+                            grep = self.dirrect_replace_prefix(word, final_index, rplc)
                     elif rigid_wordlen == 1:
                         rplc = self.fifth_dict[rules][0]
                         if '.' in rplc:
-                            grep = self.dot_replace(word, initial_index, rplc)
+                            grep = self.dot_replace(word, final_index, rplc)
                         else:
-                            grep = self.dirrect_replace(word, initial_index, rplc)
+                            grep = self.dirrect_replace(word, final_index, rplc)
                     else:
                         pass
                 else:
@@ -113,8 +132,52 @@ class BanglaStemmer:
                 break
             else:
                 pass
+        #grep = self.apply_sixth_rule(grep)
         return grep
+    
+
+    
     ## Swarnendu Added --------------------------------|
+    
+    ############### Swarnendu Trying 
+
+    # def apply_ffth_rule(self, word):
+    #     grep = word
+    #     for rules in self.fifth_dict:
+    #         result = re.search(rules, word)
+    #         if result:
+    #             print('applied third ** rules..')
+    #             initial_index = result.span()[0]
+    #             final_index = result.span()[1]
+    #             wordlen = len(word)
+    #             if final_index == wordlen:
+    #                 rigid_wordlen = self.checklen(grep[0:initial_index])
+    #                 if rigid_wordlen > 1:
+    #                     rplc = self.fifth_dict[rules][1]
+    #                     if '.' in rplc:
+    #                         grep = self.dot_replace(word, initial_index, rplc)
+    #                     else:
+    #                         grep = self.dirrect_replace(word, initial_index, rplc)
+    #                 elif rigid_wordlen == 1:
+    #                     rplc = self.fifth_dict[rules][0]
+    #                     if '.' in rplc:
+    #                         grep = self.dot_replace(word, initial_index, rplc)
+    #                     else:
+    #                         grep = self.dirrect_replace(word, initial_index, rplc)
+    #                 else:
+    #                     pass
+    #             else:
+    #                 pass
+    #             break
+    #         else:
+    #             pass
+    #     #grep = self.apply_frth_rule(grep)
+    #     return grep
+
+
+
+    ################
+    
     def apply_frth_rule(self, word):
         grep = word
         for rules in self.fourth_dict:
@@ -145,6 +208,8 @@ class BanglaStemmer:
                 break
             else:
                 pass
+        #grep = self.apply_ffth_rule(grep)
+        grep = self.apply_sixth_rule(grep)
         return grep
 
     def apply_thrd_rule(self, word):
@@ -155,7 +220,10 @@ class BanglaStemmer:
                 print('applied third rules..')
                 initial_index = result.span()[0]
                 final_index = result.span()[1]
+                
                 wordlen = len(word)
+                #print(wordlen)
+                #print(final_index)
                 if final_index == wordlen:
                     rigid_wordlen = self.checklen(grep[0:initial_index])
                     if rigid_wordlen > 1:
