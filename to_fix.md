@@ -89,3 +89,33 @@ applying `ার`, or a separate, narrower rule for bare `র` after a vowel.
 has `ার` (for আ-final roots) but nothing analogous for ই-final roots, so
 `মালি`/`মালিকে` correctly merge with each other but `মালির` doesn't join
 them. Same category as the `করে` gap above: missing rule, not a bug.
+
+## `der_initial_dict`'s `অন` prefix rule over-fires on words taking the bare `অ-` negation prefix
+
+`অনমনীয়` ("inflexible/unyielding") reduces to `মনীয়`, which is not a real
+Bengali word — the correct segmentation, confirmed independently by the
+Dasgupta & Ng (2007) academic gold set (see
+`data/external_gold/dasgupta_ng_2007/`, found via `অ+নমনীয়` in that data),
+is `অ` (negation prefix, "un-/in-") + `নমনীয়` ("flexible/malleable", a real
+standalone root).
+
+Root cause, traced through `apply_ffth_rule`: `der_initial_dict` has an
+entry for the 2-character prefix `অন` (README: "without/dis-"), and
+`re.match('অন', 'অনমনীয়')` succeeds because the word's first two
+characters literally are `অ` + `ন`. The rule strips both characters and
+returns the remainder (`মনীয়`) unconditionally, with no way to tell that
+here the true morpheme boundary falls after just the first character —
+this word actually takes the plain `অ-` prefix, and its root just happens
+to start with `ন`. Compounding this, `অ-` alone isn't in `der_initial_dict`
+at all, so there's no shorter/competing match that could win instead.
+
+Same "no lexicon, literal pattern only" failure class as the `ে.ে` and
+`ার` entries above: the rule can't distinguish a coincidental character
+match from a real prefix boundary. Likely needs either (a) adding a bare
+`অ-` rule and some way to prefer the correct one of `অ`/`অন` per-word
+(a lexicon check, most plausibly — regex alone can't disambiguate this),
+or (b) tightening `অন` to only fire in cases it's actually attested,
+if that set turns out to be small and enumerable. Flagging for review
+rather than changing unilaterally, per the usual rule for this file —
+getting the fix wrong here would silently break the genuine `অন-` cases
+(e.g. `অনিয়ম`, `অনাচার`) the rule was originally added for.
