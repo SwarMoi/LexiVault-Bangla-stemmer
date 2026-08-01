@@ -111,7 +111,11 @@ class BanglaStemmer:
             if result:
                 final_index = result.span()[1]
                 remainder = word[final_index:]
-                if remainder and remainder[0] in self.invalid_word_start:
+                if not remainder:
+                    # the whole word is the affix itself (e.g. word == 'বি')
+                    # -- stripping it would leave an empty stem.
+                    continue
+                if remainder[0] in self.invalid_word_start:
                     continue
                 rplc = self.fifth_dict[rules][1]
                 grep = rplc + remainder
