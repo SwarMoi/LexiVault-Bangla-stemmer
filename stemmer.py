@@ -52,11 +52,12 @@ class BanglaStemmer:
     
     ## Swarnendu Added --------------------------------
     def apply_sixth_rule(self, word):
+        # der_final_dict: derivational suffixes (বান, মান, শীল, ...) -- same
+        # end-anchored matching as the inflectional-suffix rules above.
         grep = word
         for rules in self.sixth_dict:
             result = re.search(rules, word)
             if result:
-                print('applied fourth rules..')
                 initial_index = result.span()[0]
                 final_index = result.span()[1]
                 wordlen = len(word)
@@ -81,33 +82,29 @@ class BanglaStemmer:
                 break
             else:
                 pass
+        grep = self.apply_ffth_rule(grep)
         return grep
 
     def apply_ffth_rule(self, word):
+        # der_initial_dict: derivational prefixes (দুর্, বি, অনু, ...). These
+        # attach to the front of the word, so -- unlike every other rule
+        # table here -- a match has to be anchored at index 0, and what
+        # survives stripping is the *tail* (word[final_index:]), not the
+        # head. None of the current replacement strings contain '.', so no
+        # dot_replace-style vowel preservation is needed on this path.
         grep = word
         for rules in self.fifth_dict:
-            result = re.search(rules, word)
+            result = re.match(rules, word)
             if result:
-                print('applied fourth rules..')
-                initial_index = result.span()[0]
                 final_index = result.span()[1]
-                wordlen = len(word)
-                if final_index == wordlen:
-                    rigid_wordlen = self.checklen(grep[0:initial_index])
-                    if rigid_wordlen > 1:
-                        rplc = self.fifth_dict[rules][1]
-                        if '.' in rplc:
-                            grep = self.dot_replace(word, initial_index, rplc)
-                        else:
-                            grep = self.dirrect_replace(word, initial_index, rplc)
-                    elif rigid_wordlen == 1:
-                        rplc = self.fifth_dict[rules][0]
-                        if '.' in rplc:
-                            grep = self.dot_replace(word, initial_index, rplc)
-                        else:
-                            grep = self.dirrect_replace(word, initial_index, rplc)
-                    else:
-                        pass
+                remainder = word[final_index:]
+                rigid_wordlen = self.checklen(remainder)
+                if rigid_wordlen > 1:
+                    rplc = self.fifth_dict[rules][1]
+                    grep = rplc + remainder
+                elif rigid_wordlen == 1:
+                    rplc = self.fifth_dict[rules][0]
+                    grep = rplc + remainder
                 else:
                     pass
                 break
@@ -120,7 +117,6 @@ class BanglaStemmer:
         for rules in self.fourth_dict:
             result = re.search(rules, word)
             if result:
-                print('applied fourth rules..')
                 initial_index = result.span()[0]
                 final_index = result.span()[1]
                 wordlen = len(word)
@@ -145,6 +141,7 @@ class BanglaStemmer:
                 break
             else:
                 pass
+        grep = self.apply_sixth_rule(grep)
         return grep
 
     def apply_thrd_rule(self, word):
@@ -152,7 +149,6 @@ class BanglaStemmer:
         for rules in self.third_dict:
             result = re.search(rules, word)
             if result:
-                print('applied third rules..')
                 initial_index = result.span()[0]
                 final_index = result.span()[1]
                 wordlen = len(word)
@@ -185,7 +181,6 @@ class BanglaStemmer:
         for rules in self.second_dict:
             result = re.search(rules, word)
             if result:
-                print('applied second rules..')
                 initial_index = result.span()[0]
                 final_index = result.span()[1]
                 wordlen = len(word)
@@ -218,7 +213,6 @@ class BanglaStemmer:
         for rules in self.first_dict:
             result = re.search(rules, word)
             if result:
-                print('applied first rules..')
                 initial_index = result.span()[0]
                 final_index = result.span()[1]
                 wordlen = len(word)
