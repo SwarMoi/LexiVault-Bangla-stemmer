@@ -85,6 +85,14 @@ class BanglaStemmer:
         grep = self.apply_ffth_rule(grep)
         return grep
 
+    # Dependent vowel signs, virama/hasant, and the other combining marks
+    # can only ever attach after a consonant -- a Bangla word can never
+    # start with one of these. Used to reject prefix matches that would
+    # split a conjunct consonant cluster in two (e.g. matching the literal
+    # prefix 'অন' inside 'অন্তর্লোক' at the অ-ন-্ conjunct boundary would
+    # leave '্তর্লোক', starting with a bare hasant).
+    invalid_word_start = set('ািীুূৃেৈোৌ্ঁংঃ')
+
     def apply_ffth_rule(self, word):
         # der_initial_dict: derivational prefixes (দুর্, বি, অনু, ...). These
         # attach to the front of the word, so -- unlike every other rule
@@ -103,6 +111,8 @@ class BanglaStemmer:
             if result:
                 final_index = result.span()[1]
                 remainder = word[final_index:]
+                if remainder and remainder[0] in self.invalid_word_start:
+                    continue
                 rplc = self.fifth_dict[rules][1]
                 grep = rplc + remainder
                 break
