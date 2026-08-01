@@ -23,8 +23,8 @@ class BanglaStemmer:
         self.second_dict = grammar.con_rep_dict
         self.third_dict = grammar.obv_rep_dict
         self.fourth_dict = grammar.sp_final_dict
-        self.fifth_dict = grammar.der_initial_dict
-        self.sixth_dict = grammar.der_final_dict
+        self.fifth_dict = grammar.der_initial_dict # Swarnendu added
+        self.sixth_dict = grammar.der_final_dict # Swarnendu added
 
     def checklen(self, word):
         skip_wrd = ['া', 'ি', 'ী', 'ু', 'ূ', 'ৃ', 'ে', 'ৈ', 'ো', 'ৌ']
@@ -151,7 +151,10 @@ class BanglaStemmer:
             if result:
                 initial_index = result.span()[0]
                 final_index = result.span()[1]
+                
                 wordlen = len(word)
+                #print(wordlen)
+                #print(final_index)
                 if final_index == wordlen:
                     rigid_wordlen = self.checklen(grep[0:initial_index])
                     if rigid_wordlen > 1:
