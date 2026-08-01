@@ -182,7 +182,27 @@ der_initial_dict = {
     'অধি':['অধি', ''],
     'অনু':['অনু', ''],
     'উদ':['উদ', ''],
-    'অন':['অন', '']
+    'অন':['অন', ''],
+    # Added from Thompson, "Bengali" (2012), ch. 4 "Word formation", p.36-39 --
+    # the standard Sanskrit/Bangla prefix inventory. Prefixes shorter than
+    # these (bare আ-, নি-, সু-) or belonging to a different register (Farsi/
+    # Arabic loan prefixes be-, dɔr-, na-, bɔd-, gɔr-, am-, listed on the same
+    # pages) were left out as too collision-prone or out of scope -- see
+    # to_fix.md.
+    'অপ':['অপ', ''],     # mis-, off, away (ɔpô-)
+    'অব':['অব', ''],     # down, inferior (ɔbô-)
+    'অভি':['অভি', ''],   # excess, towards (ôbhi-)
+    'অতি':['অতি', ''],   # too, excessive (ôti-)
+    'উপ':['উপ', ''],     # over, under, sub- (upô-)
+    'নির্':['নির্', ''],  # negating, without (nir-)
+    'পরা':['পরা', ''],   # other, reverse (pɔra-)
+    'পরি':['পরি', ''],   # thoroughness, around, opposition (pôri-)
+    # 'প্র' (forth, abundance, excess -- prô-) tried and reverted: regressed
+    # প্রজাপতি ("butterfly", a single lexical item with no real প্র- prefix
+    # meaning) to জাপতি against the output_validated.csv baseline. See
+    # to_fix.md.
+    'সং':['সং', ''],     # together, with (sɔṁ-)
+    'সম':['সম', '']      # together, with (sɔm-)
 }
 
 der_final_dict = {
@@ -190,5 +210,22 @@ der_final_dict = {
     'মান':['মান', ''],
     'শীল':['শীল', ''],
     'য়ি':['য়ি', ''],
-    'ন্ত':['ন্ত', '']    
+    'ন্ত':['ন্ত', ''],
+    # Added from Thompson, "Bengali" (2012), ch. 4 "Word formation", p.40-43.
+    # Suffixes needing a root-vowel change to strip correctly (e.g. -ik
+    # আঞ্চলিক<-অঞ্চল, -o মেজো<-মধ্য, -i নীতি<-নীত), or that collide with a
+    # common independent word (-ami আমি = the pronoun "I"; kɔr/pɔr's পর =
+    # the common word "other/after"), were left out -- see to_fix.md.
+    'ওয়ালা':['ওয়ালা', ''],  # person doing a job/task (-oỵala)
+    'জনক':['জনক', ''],      # generating, causing (-jɔnôk)
+    'কর':['কর', ''],        # assigning a quality (-kɔr)
+    # 'তা' (abstract noun, -ness/-ity -- very productive) tried and reverted:
+    # regressed দুর্লতা ("creeper/vine", a single lexical item, not root+তা)
+    # to ল, and দুশ্চিন্তা to চিন্ (pre-stripping তা before the প্রতি-family
+    # prefix stage got a chance to run its own, correct one-shot strip) --
+    # against the output_validated.csv baseline. See to_fix.md.
+    'গত':['গত', ''],        # pertaining to, obtained/held (-gɔtô)
+    'উক':['উক', ''],        # desiring/prone to (-uk)
+    'সই':['সই', ''],        # attributes a characteristic (-sôi)
+    'ইত':['ইত', '']         # past-participle-like adjective (-itô)
 }

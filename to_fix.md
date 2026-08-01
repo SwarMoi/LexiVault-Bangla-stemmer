@@ -119,3 +119,53 @@ if that set turns out to be small and enumerable. Flagging for review
 rather than changing unilaterally, per the usual rule for this file —
 getting the fix wrong here would silently break the genuine `অন-` cases
 (e.g. `অনিয়ম`, `অনাচার`) the rule was originally added for.
+
+## Derivational affixes found in Thompson (2012) but not added to `grammar.py`
+
+Thompson, *Bengali* (2012), ch. 4 "Word formation" (p.36-46) was read in
+full to expand `der_initial_dict`/`der_final_dict` beyond the original
+handful of prefixes/suffixes. Most of what's in that chapter was added
+(see the `README.md` list and the comments in `grammar.py`), but several
+attested affixes were tried and reverted, or skipped outright:
+
+- **`প্র-`** (Sanskrit "forth, abundance, excess, inception") — added, then
+  reverted: regressed `প্রজাপতি` ("butterfly", a single lexical item with
+  no real `প্র-` prefix meaning — the initial letters are coincidental)
+  from unchanged to `জাপতি` against `output/output_validated.csv`'s
+  `Correct=1` baseline.
+- **`-তা`** (very productive abstract-noun suffix, "-ness/-ity") — added,
+  then reverted: regressed two words by firing on a coincidental `তা`-
+  ending in a single lexical item rather than a real root+suffix boundary,
+  and — worse — pre-stripping it *before* the প্রতি-family prefix stage
+  got a chance to run its own correct one-shot strip on the same word
+  (stage-ordering interaction, same root issue as this file's first
+  entry): `দুর্লতা` ("creeper/vine") → `ল` instead of unchanged, and
+  `দুশ্চিন্তা` → `চিন্` instead of the correct `চিন্তা`.
+- **Bare `আ-`** (Sanskrit/Bangla "starting from") — not added. Single
+  character, and unlike the 2-character prefixes already in the dict
+  (`বি`, `অন`, `উদ`), a bare vowel prefix is likely to coincide with a
+  huge number of words that simply start with `আ` for unrelated reasons.
+  Untested; flagging the risk rather than either adding or ruling it out.
+- **Bare `নি-`** (Sanskrit/Bangla negating, alongside the already-present
+  `নির্-`) — not added, same reasoning: `নি` is a very common word-initial
+  sequence unrelated to this prefix (e.g. `নিজ`, `নিয়ে`).
+- **`সু-`** (Sanskrit/Bangla "good") — not added, same short-prefix
+  collision concern; untested.
+- **`-আমি`/`-আকি`** (noun suffix for "a deliberately assumed attitude",
+  e.g. `পাগলামি` "madness" from `পাগল`) — not added: `আমি` is also the
+  extremely high-frequency first-person pronoun "I", and stripping it as
+  a suffix risks false-positiving on any word that coincidentally ends in
+  those letters.
+- **`-পর`** (the `কর`/`পর` adjective-forming pair, e.g. `স্বার্থপর`
+  "selfish") — only `কর` was added; `পর` was left out because it's also
+  a very common independent word ("other/after"), same collision class.
+- Suffixes needing a **root-vowel change** to strip correctly weren't
+  added at all, since the current architecture has no vowel-harmony
+  machinery beyond the one hand-tuned `ে.ে` rule already flagged as buggy
+  above: `-ik` (আঞ্চলিক ← অঞ্চল), `-o` (মেজো ← মধ্য), `-i` from `-o`
+  adjectives (নীতি ← নীত), and the jɔphɔla/bɔphɔla abstract nouns
+  (Ch.4 §4.3.iii).
+- **Farsi/Arabic loan prefixes** (`বে-`, `দর-`, `না-`, `বদ-`, `গর-`,
+  `আম-`, listed in the same chapter) weren't added — different register/
+  etymology than the rest of `der_initial_dict`, and untested against
+  loanword vocabulary.
