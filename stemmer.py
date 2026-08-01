@@ -57,31 +57,30 @@ class BanglaStemmer:
         grep = word
         for rules in self.sixth_dict:
             result = re.search(rules, word)
-            if result:
-                initial_index = result.span()[0]
-                final_index = result.span()[1]
-                wordlen = len(word)
-                if final_index == wordlen:
-                    rigid_wordlen = self.checklen(grep[0:initial_index])
-                    if rigid_wordlen > 1:
-                        rplc = self.sixth_dict[rules][1]
-                        if '.' in rplc:
-                            grep = self.dot_replace(word, initial_index, rplc)
-                        else:
-                            grep = self.dirrect_replace(word, initial_index, rplc)
-                    elif rigid_wordlen == 1:
-                        rplc = self.sixth_dict[rules][0]
-                        if '.' in rplc:
-                            grep = self.dot_replace(word, initial_index, rplc)
-                        else:
-                            grep = self.dirrect_replace(word, initial_index, rplc)
-                    else:
-                        pass
+            if not result:
+                continue
+            initial_index = result.span()[0]
+            final_index = result.span()[1]
+            wordlen = len(word)
+            if final_index != wordlen:
+                # matched somewhere mid-word, not as a real suffix here --
+                # keep scanning instead of giving up on this whole stage.
+                continue
+            rigid_wordlen = self.checklen(grep[0:initial_index])
+            if rigid_wordlen > 1:
+                rplc = self.sixth_dict[rules][1]
+                if '.' in rplc:
+                    grep = self.dot_replace(word, initial_index, rplc)
                 else:
-                    pass
+                    grep = self.dirrect_replace(word, initial_index, rplc)
                 break
-            else:
-                pass
+            elif rigid_wordlen == 1:
+                rplc = self.sixth_dict[rules][0]
+                if '.' in rplc:
+                    grep = self.dot_replace(word, initial_index, rplc)
+                else:
+                    grep = self.dirrect_replace(word, initial_index, rplc)
+                break
         grep = self.apply_ffth_rule(grep)
         return grep
 
@@ -128,31 +127,28 @@ class BanglaStemmer:
         grep = word
         for rules in self.fourth_dict:
             result = re.search(rules, word)
-            if result:
-                initial_index = result.span()[0]
-                final_index = result.span()[1]
-                wordlen = len(word)
-                if final_index == wordlen:
-                    rigid_wordlen = self.checklen(grep[0:initial_index])
-                    if rigid_wordlen > 1:
-                        rplc = self.fourth_dict[rules][1]
-                        if '.' in rplc:
-                            grep = self.dot_replace(word, initial_index, rplc)
-                        else:
-                            grep = self.dirrect_replace(word, initial_index, rplc)
-                    elif rigid_wordlen == 1:
-                        rplc = self.fourth_dict[rules][0]
-                        if '.' in rplc:
-                            grep = self.dot_replace(word, initial_index, rplc)
-                        else:
-                            grep = self.dirrect_replace(word, initial_index, rplc)
-                    else:
-                        pass
+            if not result:
+                continue
+            initial_index = result.span()[0]
+            final_index = result.span()[1]
+            wordlen = len(word)
+            if final_index != wordlen:
+                continue
+            rigid_wordlen = self.checklen(grep[0:initial_index])
+            if rigid_wordlen > 1:
+                rplc = self.fourth_dict[rules][1]
+                if '.' in rplc:
+                    grep = self.dot_replace(word, initial_index, rplc)
                 else:
-                    pass
+                    grep = self.dirrect_replace(word, initial_index, rplc)
                 break
-            else:
-                pass
+            elif rigid_wordlen == 1:
+                rplc = self.fourth_dict[rules][0]
+                if '.' in rplc:
+                    grep = self.dot_replace(word, initial_index, rplc)
+                else:
+                    grep = self.dirrect_replace(word, initial_index, rplc)
+                break
         grep = self.apply_sixth_rule(grep)
         return grep
 
@@ -160,34 +156,28 @@ class BanglaStemmer:
         grep = word
         for rules in self.third_dict:
             result = re.search(rules, word)
-            if result:
-                initial_index = result.span()[0]
-                final_index = result.span()[1]
-                
-                wordlen = len(word)
-                #print(wordlen)
-                #print(final_index)
-                if final_index == wordlen:
-                    rigid_wordlen = self.checklen(grep[0:initial_index])
-                    if rigid_wordlen > 1:
-                        rplc = self.third_dict[rules][1]
-                        if '.' in rplc:
-                            grep = self.dot_replace(word, initial_index, rplc)
-                        else:
-                            grep = self.dirrect_replace(word, initial_index, rplc)
-                    elif rigid_wordlen == 1:
-                        rplc = self.third_dict[rules][0]
-                        if '.' in rplc:
-                            grep = self.dot_replace(word, initial_index, rplc)
-                        else:
-                            grep = self.dirrect_replace(word, initial_index, rplc)
-                    else:
-                        pass
+            if not result:
+                continue
+            initial_index = result.span()[0]
+            final_index = result.span()[1]
+            wordlen = len(word)
+            if final_index != wordlen:
+                continue
+            rigid_wordlen = self.checklen(grep[0:initial_index])
+            if rigid_wordlen > 1:
+                rplc = self.third_dict[rules][1]
+                if '.' in rplc:
+                    grep = self.dot_replace(word, initial_index, rplc)
                 else:
-                    pass
+                    grep = self.dirrect_replace(word, initial_index, rplc)
                 break
-            else:
-                pass
+            elif rigid_wordlen == 1:
+                rplc = self.third_dict[rules][0]
+                if '.' in rplc:
+                    grep = self.dot_replace(word, initial_index, rplc)
+                else:
+                    grep = self.dirrect_replace(word, initial_index, rplc)
+                break
         grep = self.apply_frth_rule(grep)
         return grep
 
@@ -195,31 +185,28 @@ class BanglaStemmer:
         grep = word
         for rules in self.second_dict:
             result = re.search(rules, word)
-            if result:
-                initial_index = result.span()[0]
-                final_index = result.span()[1]
-                wordlen = len(word)
-                if final_index == wordlen:
-                    rigid_wordlen = self.checklen(grep[0:initial_index])
-                    if rigid_wordlen > 1:
-                        rplc = self.second_dict[rules][1]
-                        if '.' in rplc:
-                            grep = self.dot_replace(word, initial_index, rplc)
-                        else:
-                            grep = self.dirrect_replace(word, initial_index, rplc)
-                    elif rigid_wordlen == 1:
-                        rplc = self.second_dict[rules][0]
-                        if '.' in rplc:
-                            grep = self.dot_replace(word, initial_index, rplc)
-                        else:
-                            grep = self.dirrect_replace(word, initial_index, rplc)
-                    else:
-                        pass
+            if not result:
+                continue
+            initial_index = result.span()[0]
+            final_index = result.span()[1]
+            wordlen = len(word)
+            if final_index != wordlen:
+                continue
+            rigid_wordlen = self.checklen(grep[0:initial_index])
+            if rigid_wordlen > 1:
+                rplc = self.second_dict[rules][1]
+                if '.' in rplc:
+                    grep = self.dot_replace(word, initial_index, rplc)
                 else:
-                    pass
+                    grep = self.dirrect_replace(word, initial_index, rplc)
                 break
-            else:
-                pass
+            elif rigid_wordlen == 1:
+                rplc = self.second_dict[rules][0]
+                if '.' in rplc:
+                    grep = self.dot_replace(word, initial_index, rplc)
+                else:
+                    grep = self.dirrect_replace(word, initial_index, rplc)
+                break
         grep = self.apply_thrd_rule(grep)
         return grep
 
@@ -227,31 +214,28 @@ class BanglaStemmer:
         grep = word
         for rules in self.first_dict:
             result = re.search(rules, word)
-            if result:
-                initial_index = result.span()[0]
-                final_index = result.span()[1]
-                wordlen = len(word)
-                if final_index == wordlen:
-                    rigid_wordlen = self.checklen(grep[0:initial_index])
-                    if rigid_wordlen > 1:
-                        rplc = self.first_dict[rules][1]
-                        if '.' in rplc:
-                            grep = self.dot_replace(word, initial_index, rplc)
-                        else:
-                            grep = self.dirrect_replace(word, initial_index, rplc)
-                    elif rigid_wordlen == 1:
-                        rplc = self.first_dict[rules][0]
-                        if '.' in rplc:
-                            grep = self.dot_replace(word, initial_index, rplc)
-                        else:
-                            grep = self.dirrect_replace(word, initial_index, rplc)
-                    else:
-                        pass
+            if not result:
+                continue
+            initial_index = result.span()[0]
+            final_index = result.span()[1]
+            wordlen = len(word)
+            if final_index != wordlen:
+                continue
+            rigid_wordlen = self.checklen(grep[0:initial_index])
+            if rigid_wordlen > 1:
+                rplc = self.first_dict[rules][1]
+                if '.' in rplc:
+                    grep = self.dot_replace(word, initial_index, rplc)
                 else:
-                    pass
+                    grep = self.dirrect_replace(word, initial_index, rplc)
                 break
-            else:
-                pass
+            elif rigid_wordlen == 1:
+                rplc = self.first_dict[rules][0]
+                if '.' in rplc:
+                    grep = self.dot_replace(word, initial_index, rplc)
+                else:
+                    grep = self.dirrect_replace(word, initial_index, rplc)
+                break
         grep = self.apply_scnd_rule(grep)
         return grep
 
