@@ -44,3 +44,48 @@ entry for bare `-ে` (with the usual short-root conservatism), which is a
 grammar-table content change rather than a code fix — flagging for
 review rather than adding unilaterally, since a bad regex here would
 touch a very large number of words at once.
+
+## `sp_final_dict`'s `ে.ে` vowel-harmony rule fires on unrelated nouns
+
+`ছেলে` ("boy" — a very high-frequency, basic-vocabulary noun) reduces to
+`ছাল`, which is a real but completely unrelated Bangla word ("bark/skin/
+husk"), not a variant spelling or typo. Root cause: the `ে.ে` → `া.` rule
+(`sp_final_dict`, comment references `হেসে নেচে গেয়ে`) exists to reverse a
+vowel-harmony alternation specific to `-য়ে` conjunctive-participle verb
+forms (root হাস + য়ে → হেসে). But the rule table stores it as a bare
+literal/regex pattern with no way to require "this is actually a `-য়ে`
+participle" — it matches *any* word with a consonant-ে-anything-ে shape,
+which `ছেলে` satisfies purely by coincidence.
+
+This is a false-merge risk, not just a wrong-looking output: if any
+inflected form of the real word `ছাল` also appears in the corpus, it
+would land on the same stem as `ছেলে` and its whole family, silently
+merging two unrelated lemmas in `stem_freq`.
+
+Likely fix: tighten the pattern to require the vowel harmony's actual
+trigger (a preceding `য়`, i.e. something like `য়ে$` combined with the
+vowel-flip logic) instead of matching the bare `ে.ে` shape — needs
+linguistic review before changing, since getting the replacement logic
+wrong here would touch every word fitting the shape, including the
+correct verb-form cases it currently handles fine (e.g. `হেসে`, `নেচে`).
+
+## `sp_final_dict`'s `ার` rule can eat a vowel-final root's own final vowel
+
+`ঘটনার` ("of the event") reduces to `ঘটন`, not `ঘটনা`. The root `ঘটনা`
+already ends in the vowel sign `া`; the possessive marker attached to it
+is just `র`, but the `ার` rule (meant for consonant-final roots like
+`কার`/`মার`/`যার`, per its comment) matches the literal 2-character
+sequence `ার` regardless of whether the `া` belongs to the suffix or the
+root, so it strips both `া` and `র` here — over-stripping the root's own
+final letter.
+
+Same "no lexicon, literal pattern only" failure class as the other items
+here. Likely needs a lexicon/heuristic check for vowel-final roots before
+applying `ার`, or a separate, narrower rule for bare `র` after a vowel.
+
+## No rule covers the possessive `-ির` ending on ই-final roots
+
+`মালির` ("gardener's", from `মালি` + `র`) is left unchanged — `sp_final_dict`
+has `ার` (for আ-final roots) but nothing analogous for ই-final roots, so
+`মালি`/`মালিকে` correctly merge with each other but `মালির` doesn't join
+them. Same category as the `করে` gap above: missing rule, not a bug.
