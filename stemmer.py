@@ -90,23 +90,21 @@ class BanglaStemmer:
         # attach to the front of the word, so -- unlike every other rule
         # table here -- a match has to be anchored at index 0, and what
         # survives stripping is the *tail* (word[final_index:]), not the
-        # head. None of the current replacement strings contain '.', so no
-        # dot_replace-style vowel preservation is needed on this path.
+        # head. checklen()-based conservatism (used by every suffix rule to
+        # avoid over-stripping short roots) doesn't transfer here: prefixed
+        # roots are often short by checklen's count while still being
+        # complete words (e.g. দুরা+আশা -> দুরাশা, remainder আশা has
+        # checklen 1 but is a valid root), so this rule always applies the
+        # index[1] replacement. None of the current replacement strings
+        # contain '.', so no dot_replace-style vowel preservation is needed.
         grep = word
         for rules in self.fifth_dict:
             result = re.match(rules, word)
             if result:
                 final_index = result.span()[1]
                 remainder = word[final_index:]
-                rigid_wordlen = self.checklen(remainder)
-                if rigid_wordlen > 1:
-                    rplc = self.fifth_dict[rules][1]
-                    grep = rplc + remainder
-                elif rigid_wordlen == 1:
-                    rplc = self.fifth_dict[rules][0]
-                    grep = rplc + remainder
-                else:
-                    pass
+                rplc = self.fifth_dict[rules][1]
+                grep = rplc + remainder
                 break
             else:
                 pass
