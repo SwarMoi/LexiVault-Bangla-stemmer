@@ -23,102 +23,32 @@ rule matches) or restructuring the chain to revisit earlier tables after a
 later one strips something — needs some care to avoid infinite loops or
 over-stripping on repeated application.
 
-## No rule table covers the bare present-tense `-ে` verb ending
+There's a related, narrower instance of the same "leftmost re.search match
+wins, no rescanning" limitation: single-character patterns like the bare
+`-ে` rule (`con_rep_dict`, added to fix the gap below) only fire when their
+one match happens to be the word's *last* character occurrence of that
+letter. A word with an earlier, unrelated `ে` (e.g. `দেখে`, where the first
+`ে` is part of the root's own spelling) never reaches the bare-`ে` rule at
+all, because `re.search` finds that earlier occurrence first, fails the
+end-anchor check, and there's no retry against a later occurrence of the
+same pattern. `দেখে` currently falls through to `sp_final_dict`'s `ে.ে`
+rule instead (now correctly left unchanged rather than false-merged, see
+below, but still not reduced to its own paradigm's `দেখ` root).
 
-`করে` ("does/do", 3rd person present habitual) is left completely
-unchanged by `stem()` — none of the six rule tables have an entry that
-matches a bare `-ে` ending on its own (`con_rep_dict` only covers `-ে`
-combined with progressive/perfect markers like `িয়ে`/`েয়ে`/`ায়ে`/`য়ে`, not
-the plain present-tense form). This isn't a rule-ordering bug like the one
-above; the rule simply doesn't exist.
+## `sp_final_dict`'s `া.ার` rule can over-strip too, same failure class as the now-fixed `ার` rule
 
-This matters more than most gaps because `করে` is one of the highest-
-frequency single tokens in the whole corpus (~153M occurrences,
-2nd-ranked by raw frequency). It stays split off from the rest of its own
-paradigm — `করা`/`করলাম`/`করব`/`করেছে`/`করছি` all correctly reduce to `কর`,
-but `করে` doesn't join them.
-
-Same gap likely affects the same present-tense form of every other verb
-(e.g. `যায়`, `বলে`, `দেয়`), not just `কর`. Needs a new `con_rep_dict`
-entry for bare `-ে` (with the usual short-root conservatism), which is a
-grammar-table content change rather than a code fix — flagging for
-review rather than adding unilaterally, since a bad regex here would
-touch a very large number of words at once.
-
-## `sp_final_dict`'s `ে.ে` vowel-harmony rule fires on unrelated nouns
-
-`ছেলে` ("boy" — a very high-frequency, basic-vocabulary noun) reduces to
-`ছাল`, which is a real but completely unrelated Bangla word ("bark/skin/
-husk"), not a variant spelling or typo. Root cause: the `ে.ে` → `া.` rule
-(`sp_final_dict`, comment references `হেসে নেচে গেয়ে`) exists to reverse a
-vowel-harmony alternation specific to `-য়ে` conjunctive-participle verb
-forms (root হাস + য়ে → হেসে). But the rule table stores it as a bare
-literal/regex pattern with no way to require "this is actually a `-য়ে`
-participle" — it matches *any* word with a consonant-ে-anything-ে shape,
-which `ছেলে` satisfies purely by coincidence.
-
-This is a false-merge risk, not just a wrong-looking output: if any
-inflected form of the real word `ছাল` also appears in the corpus, it
-would land on the same stem as `ছেলে` and its whole family, silently
-merging two unrelated lemmas in `stem_freq`.
-
-Likely fix: tighten the pattern to require the vowel harmony's actual
-trigger (a preceding `য়`, i.e. something like `য়ে$` combined with the
-vowel-flip logic) instead of matching the bare `ে.ে` shape — needs
-linguistic review before changing, since getting the replacement logic
-wrong here would touch every word fitting the shape, including the
-correct verb-form cases it currently handles fine (e.g. `হেসে`, `নেচে`).
-
-## `sp_final_dict`'s `ার` rule can eat a vowel-final root's own final vowel
-
-`ঘটনার` ("of the event") reduces to `ঘটন`, not `ঘটনা`. The root `ঘটনা`
-already ends in the vowel sign `া`; the possessive marker attached to it
-is just `র`, but the `ার` rule (meant for consonant-final roots like
-`কার`/`মার`/`যার`, per its comment) matches the literal 2-character
-sequence `ার` regardless of whether the `া` belongs to the suffix or the
-root, so it strips both `া` and `র` here — over-stripping the root's own
-final letter.
-
-Same "no lexicon, literal pattern only" failure class as the other items
-here. Likely needs a lexicon/heuristic check for vowel-final roots before
-applying `ার`, or a separate, narrower rule for bare `র` after a vowel.
-
-## No rule covers the possessive `-ির` ending on ই-final roots
-
-`মালির` ("gardener's", from `মালি` + `র`) is left unchanged — `sp_final_dict`
-has `ার` (for আ-final roots) but nothing analogous for ই-final roots, so
-`মালি`/`মালিকে` correctly merge with each other but `মালির` doesn't join
-them. Same category as the `করে` gap above: missing rule, not a bug.
-
-## `der_initial_dict`'s `অন` prefix rule over-fires on words taking the bare `অ-` negation prefix
-
-`অনমনীয়` ("inflexible/unyielding") reduces to `মনীয়`, which is not a real
-Bengali word — the correct segmentation, confirmed independently by the
-Dasgupta & Ng (2007) academic gold set (see
-`data/external_gold/dasgupta_ng_2007/`, found via `অ+নমনীয়` in that data),
-is `অ` (negation prefix, "un-/in-") + `নমনীয়` ("flexible/malleable", a real
-standalone root).
-
-Root cause, traced through `apply_ffth_rule`: `der_initial_dict` has an
-entry for the 2-character prefix `অন` (README: "without/dis-"), and
-`re.match('অন', 'অনমনীয়')` succeeds because the word's first two
-characters literally are `অ` + `ন`. The rule strips both characters and
-returns the remainder (`মনীয়`) unconditionally, with no way to tell that
-here the true morpheme boundary falls after just the first character —
-this word actually takes the plain `অ-` prefix, and its root just happens
-to start with `ন`. Compounding this, `অ-` alone isn't in `der_initial_dict`
-at all, so there's no shorter/competing match that could win instead.
-
-Same "no lexicon, literal pattern only" failure class as the `ে.ে` and
-`ার` entries above: the rule can't distinguish a coincidental character
-match from a real prefix boundary. Likely needs either (a) adding a bare
-`অ-` rule and some way to prefer the correct one of `অ`/`অন` per-word
-(a lexicon check, most plausibly — regex alone can't disambiguate this),
-or (b) tightening `অন` to only fire in cases it's actually attested,
-if that set turns out to be small and enumerable. Flagging for review
-rather than changing unilaterally, per the usual rule for this file —
-getting the fix wrong here would silently break the genuine `অন-` cases
-(e.g. `অনিয়ম`, `অনাচার`) the rule was originally added for.
+Found while testing the `অন` prefix fix below: `অনাচার` ("misconduct")
+reduces to `অন`, not left unchanged or correctly split. Root cause: before
+reaching the prefix stage at all, `sp_final_dict`'s `া.ার` rule (meant for
+patterns like `কামার`/`জানার`) matches the word's trailing `াচার` and,
+since `checklen('অন') > 1`, strips it entirely rather than preserving the
+root's own vowel — the exact same class of bug the plain `ার` rule had
+(now fixed, see the session that resolved items below) but not yet applied
+to this related pattern (`া.ার`, and its cousin `া.া.ার`). Needs the same
+treatment: change the `rigid_wordlen > 1` branch's replacement to preserve
+the vowel sign instead of deleting it, then re-verify against the 94-word
+baseline and external gold sets, since these patterns are rarer and less
+tested than plain `ার` was.
 
 ## Derivational affixes found in Thompson (2012) but not added to `grammar.py`
 
@@ -143,7 +73,7 @@ attested affixes were tried and reverted, or skipped outright:
   `দুশ্চিন্তা` → `চিন্` instead of the correct `চিন্তা`.
 - **Bare `আ-`** (Sanskrit/Bangla "starting from") — not added. Single
   character, and unlike the 2-character prefixes already in the dict
-  (`বি`, `অন`, `উদ`), a bare vowel prefix is likely to coincide with a
+  (`বি`, `উদ`), a bare vowel prefix is likely to coincide with a
   huge number of words that simply start with `আ` for unrelated reasons.
   Untested; flagging the risk rather than either adding or ruling it out.
 - **Bare `নি-`** (Sanskrit/Bangla negating, alongside the already-present
@@ -160,12 +90,43 @@ attested affixes were tried and reverted, or skipped outright:
   "selfish") — only `কর` was added; `পর` was left out because it's also
   a very common independent word ("other/after"), same collision class.
 - Suffixes needing a **root-vowel change** to strip correctly weren't
-  added at all, since the current architecture has no vowel-harmony
-  machinery beyond the one hand-tuned `ে.ে` rule already flagged as buggy
-  above: `-ik` (আঞ্চলিক ← অঞ্চল), `-o` (মেজো ← মধ্য), `-i` from `-o`
-  adjectives (নীতি ← নীত), and the jɔphɔla/bɔphɔla abstract nouns
-  (Ch.4 §4.3.iii).
+  added at all, since the current architecture has no general vowel-
+  harmony machinery beyond the small, explicitly-whitelisted `ে.ে` case
+  (see `grammar.py`'s `ee_harmony_roots`): `-ik` (আঞ্চলিক ← অঞ্চল), `-o`
+  (মেজো ← মধ্য), `-i` from `-o` adjectives (নীতি ← নীত), and the
+  jɔphɔla/bɔphɔla abstract nouns (Ch.4 §4.3.iii).
 - **Farsi/Arabic loan prefixes** (`বে-`, `দর-`, `না-`, `বদ-`, `গর-`,
   `আম-`, listed in the same chapter) weren't added — different register/
   etymology than the rest of `der_initial_dict`, and untested against
   loanword vocabulary.
+
+---
+
+**Resolved this session** (verified against the 94 `Correct=1` rows in
+`output/output_validated.csv`, 0 regressions each time):
+
+- Added a bare present-tense `-ে` rule to `con_rep_dict` (`করে` → `কর`).
+- Gated `sp_final_dict`'s `ে.ে` vowel-harmony rule behind a small explicit
+  whitelist (`grammar.ee_harmony_roots = {হাস, নাচ}`) instead of firing on
+  any word with that surface shape — fixes the `ছেলে` → `ছাল` false merge
+  (and the same-class `দেখে`/`খেলে`/`ঠেলে` cases) while keeping `হেসে`/
+  `নেচে` working. Real verb roots outside the whitelist (if any exist with
+  this exact shape) will now be left unstemmed rather than false-merged —
+  a deliberate precision-over-recall tradeoff given no lexicon exists to
+  do better.
+- Added `sp_final_dict['ির']` for the possessive on ই-final roots
+  (`মালির` → `মালি`, matching the existing `মালি`/`মালিকে` merge).
+- Fixed `sp_final_dict['ার']`'s long-root branch to preserve the root's
+  own vowel instead of deleting it (`ঘটনার` → `ঘটনা`, `কলিজার` → `কলিজা`).
+  This changed one baseline expectation (`কলিজার`'s gold stem was
+  corrected from `কলিজ` to `কলিজা`, confirmed with the user).
+- Removed `der_initial_dict`'s `অন` 2-character prefix entry entirely
+  (rather than patching it): every word it actually fired on in practice
+  produced a nonsense fragment (`অনটন`→`টন`, `অনড়`→`ড়`, etc.), and the two
+  examples its own comment cited as "genuine" cases never actually
+  exercised the rule (one was blocked by `invalid_word_start`, the other
+  turns out to be caught by the `া.ার` bug logged above). Fixes the
+  confirmed `অনমনীয়` → `মনীয়` bug (Dasgupta & Ng gold set); words like
+  `অনমনীয়` are now left unchanged rather than wrongly merged — not the
+  ideal `অ`+`নমনীয়` split, but adding bare `অ-` was already ruled out
+  elsewhere in this file as too collision-prone without a lexicon.

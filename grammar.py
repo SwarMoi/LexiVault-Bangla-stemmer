@@ -126,7 +126,16 @@ con_rep_dict = {
     'েয়ে':['ায়', ''],         # গেয়ে পেয়ে
     'ইয়ে':['য়', ''],          # পাইয়ে, যাইয়ে
     'ায়ে':['া', ''],          # নায়ে পায়ে গায়ে
-    'য়ে':['য়', 'য়']           # হয়ে, লয়ে
+    'য়ে':['য়', 'য়'],          # হয়ে, লয়ে
+    #---------------#
+    # Bare present-tense habitual ending (word+e with no semivowel
+    # marker, e.g. করে -> কর). Must come last in this dict: every pattern
+    # above this point is a longer, more specific final shape and has to
+    # get first refusal, since bare e would otherwise match the tail of
+    # all of them too (end-anchored, first-match-wins loop in stemmer.py).
+    # Short-root branch (checklen==1, e.g. closed-class pronouns) is left
+    # unchanged, same conservatism used elsewhere in this table -- to_fix.md.
+    'ে':['ে', '']
 }
 
 #------------- Rules for special inflection ---------------#
@@ -153,11 +162,15 @@ sp_final_dict = {
     # 'ওয়া':
     #---------------#
     'েশে':['েশ', 'েশ'],        # দেশে কেশে
-    'ে.ে':['া.', 'ে.'],         # হেসে নেচে গেয়ে
+    'ে.ে':['া.', 'ে.'],         # হেসে নেচে -- gated by ee_harmony_roots, see below
     'া.া.ার':['া.া', ''],   # নামাবার, জানালার
     'া.ার':['া.া', ''],   # কামার, জানার
     'ের':['ের', ''],        # শের
-    'ার':['ার', ''],        #কার মার যার
+    'ার':['ার', 'া'],        #কার মার যার
+    'ির':['ির', 'ি'],       # মালির -> মালি (possessive on i-final roots,
+                                     #  e.g. বাড়ির -> বাড়ি); short-root branch
+                                     # left unchanged, same conservatism as elsewhere
+                                     # -- to_fix.md
     'েন':['েন', ''],
     #---------------#
     'লি':['লি', ''],
@@ -171,6 +184,18 @@ sp_final_dict = {
     'ড়ব':['ড়', 'ড়']
 }
 
+# Roots that undergo the আ<->ে vowel-harmony alternation before the bare
+# -e present/participle marker (হাস+e -> হেসে, নাচ+e -> নেচে).
+# sp_final_dict's 'e.e' rule matches this Cons-e-Cons-e surface shape,
+# but that shape also occurs coincidentally in words whose root already
+# contains an internal e (ছেলে "boy", দেখে "sees") or in
+# other unrelated nouns -- without a lexicon there's no way to tell a
+# real harmony alternation from a coincidental match, so the rule is
+# restricted to only fire for this small, explicitly attested set of
+# roots. See to_fix.md.
+ee_harmony_roots = {'হাস', 'নাচ'}
+ee_harmony_rule_key = 'ে.ে'
+
 der_initial_dict = {
     'প্রতি':['প্রতি', ''],
     'দুশ্চি':['দুশ্চি', 'চি'],
@@ -182,7 +207,15 @@ der_initial_dict = {
     'অধি':['অধি', ''],
     'অনু':['অনু', ''],
     'উদ':['উদ', ''],
-    'অন':['অন', ''],
+    # 'অন' (2-char prefix, was here for "without/dis-") removed: every
+    # word it actually fired on empirically (অনটন, অনল, etc.) produced a
+    # nonsense fragment, not a real root, and the two "genuine" examples
+    # this comment used to cite never actually exercised this rule in
+    # practice (one is blocked by invalid_word_start, the other is caught
+    # by an unrelated earlier rule first). Confirmed bug it caused:
+    # অনমনীয় -> অ + নমনীয় (Dasgupta & Ng gold set), see to_fix.md.
+    # No lexicon-free way found to keep 'অন' for real cases without this
+    # kind of over-stripping, so it's dropped rather than patched.
     # Added from Thompson, "Bengali" (2012), ch. 4 "Word formation", p.36-39 --
     # the standard Sanskrit/Bangla prefix inventory. Prefixes shorter than
     # these (bare আ-, নি-, সু-) or belonging to a different register (Farsi/

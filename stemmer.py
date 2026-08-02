@@ -145,9 +145,17 @@ class BanglaStemmer:
             elif rigid_wordlen == 1:
                 rplc = self.fourth_dict[rules][0]
                 if '.' in rplc:
-                    grep = self.dot_replace(word, initial_index, rplc)
+                    candidate = self.dot_replace(word, initial_index, rplc)
                 else:
-                    grep = self.dirrect_replace(word, initial_index, rplc)
+                    candidate = self.dirrect_replace(word, initial_index, rplc)
+                if rules == grammar.ee_harmony_rule_key and candidate not in grammar.ee_harmony_roots:
+                    # Cons-e-Cons-e shape matched, but not one of the
+                    # attested vowel-harmony roots -- likely a coincidental
+                    # match (ছেলে, দেখে), not a real alternation. Skip this
+                    # key rather than risk a false merge; see grammar.py's
+                    # ee_harmony_roots comment and to_fix.md.
+                    continue
+                grep = candidate
                 break
         grep = self.apply_sixth_rule(grep)
         return grep
