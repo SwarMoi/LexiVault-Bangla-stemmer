@@ -164,7 +164,7 @@ sp_final_dict = {
     'েশে':['েশ', 'েশ'],        # দেশে কেশে
     'ে.ে':['া.', 'ে.'],         # হেসে নেচে -- gated by ee_harmony_roots, see below
     'া.া.ার':['া.া', ''],   # নামাবার, জানালার
-    'া.ার':['া.া', ''],   # কামার, জানার
+    'া.ার':['া.া', 'া.া'],   # কামার, জানার
     'ের':['ের', ''],        # শের
     'ার':['ার', 'া'],        #কার মার যার
     'ির':['ির', 'ি'],       # মালির -> মালি (possessive on i-final roots,
@@ -195,6 +195,31 @@ sp_final_dict = {
 # roots. See to_fix.md.
 ee_harmony_roots = {'হাস', 'নাচ'}
 ee_harmony_rule_key = 'ে.ে'
+
+# Words confirmed (corpus_sample_validated.csv review) to be fully
+# lexicalized/monomorphemic in modern Bangla despite starting with what
+# looks like a der_initial_dict prefix -- stripping that "prefix"
+# false-merges them into an unrelated real word or garbage (e.g.
+# বিশ্বাস "belief" -> শ্বাস "breath" if বি- fires; নির্বাচন "election"
+# -> বাচন "diction" if নির্- fires). Checked with str.startswith in
+# apply_ffth_rule against the word as it arrives at the prefix stage
+# (i.e. after inflectional suffixes are already stripped), so this also
+# protects untested inflected forms of the same roots, not just the
+# exact words below. Same "no lexicon" failure class noted throughout
+# to_fix.md -- this is a seed list from confirmed cases, not a general
+# solution; see to_fix.md's der_initial_dict item for the many other
+# known-affected words not yet added here.
+protected_prefix_roots = (
+    'বিশ্বাস',
+    'অতিথি',
+    'নির্বাচন',
+    'সমঝোতা',
+    'বিশিষ্ট',
+    'বিরতিস্পেস',
+    'পরিবর',
+    'বিলিরি',
+    'বিছট',
+)
 
 der_initial_dict = {
     'প্রতি':['প্রতি', ''],

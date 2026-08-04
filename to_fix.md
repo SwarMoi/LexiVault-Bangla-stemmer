@@ -1,27 +1,114 @@
 # Known issues
 
-## Each rule stage fires at most once per word (no stacked-suffix peeling)
+## `der_initial_dict`'s Sanskrit prefixes over-fire on lexicalized compounds — partially resolved
 
-`stem()` runs a fixed chain of six stages
-(`apply_frst_rule → apply_scnd_rule → apply_thrd_rule → apply_frth_rule →
-apply_sixth_rule → apply_ffth_rule`, see `stemmer.py`), and each stage
-tries its rule table once, applies at most one match, and hands off to the
-next stage. It never loops back to re-check an earlier table against the
-new, shorter word.
+The `corpus_sample_validated.csv` 400-word sample was reviewed this
+session (Claude first pass — flagged `Correct`/`Remarks` on every row that
+changed under `stem()`, left ~20 genuinely uncertain rows blank for you;
+**this is a draft, not a substitute for your own read of it**). Of the 201
+words the stemmer actually transforms, 38 were wrong, and most trace back
+to one recurring cause: the same problem that made `অন` get removed
+entirely also affects several of its still-present neighbors — `বি`,
+`অতি`, `পরি`, `অভি`, `সম`, `নির্`. Each is a real Sanskrit prefix in the
+abstract, but the specific word it's firing on here has become a fully
+lexicalized, monomorphemic compound in modern Bangla, so stripping the
+"prefix" produces a false merge or garbage.
 
-This means a word with two stacked suffixes from the *same* dictionary
-only gets one of them stripped. Example from the corpus sample
-(`output/corpus_sample_validated.csv`):
+**Fixed this session for the 9 confirmed cases**: `grammar.py` now has a
+`protected_prefix_roots` tuple (`বিশ্বাস`, `অতিথি`, `নির্বাচন`, `সমঝোতা`,
+`বিশিষ্ট`, `বিরতিস্পেস`, `পরিবর`, `বিলিরি`, `বিছট`), checked in
+`apply_ffth_rule` via `word.startswith(...)` against the word as it
+arrives at the prefix stage (i.e. after inflectional stripping) — matches
+skip prefix-stripping entirely rather than trying to guess which specific
+rule would have false-fired. `startswith` rather than exact-match so it
+also covers untested inflected forms sharing the same root, not just the
+9 literal words tested. Verified: 94/94 baseline, 9/400 corpus-sample
+words changed (all were the intended fixes, e.g. `বিশ্বাসগুলোই` →
+`বিশ্বাস` instead of `শ্বাস`), external gold ticked up slightly again
+(Dasgupta & Ng 42.6%→42.7%, Ahmed et al. 33.3%→33.9%).
 
-- `মালিতেও` → `মালিতে` (only the emphatic `ও` is stripped; the locative
-  `তে` that becomes exposed afterward belongs to `sp_initial_dict`, the
-  same table that already fired earlier in the chain for this word, so it
-  never gets a second look). Ideal stem: `মালি`.
+**Still open** — this is a 9-word seed list, not a general solution, and
+several confirmed-bad words from the review were deliberately left out
+because the damage happens *before* the prefix stage even runs (so
+protecting the prefix stage alone doesn't fully fix them):
+`অধিকারবাদের`, `বিভ্রান্তিতেও` (suffix-side now clean, but `বি-` still
+merges the prefix-stripped result into `ভ্রান্তি`), `অতিতির`,
+`বিশ্বাধার`, `অভিযোগকারিণীর`. Full list with remarks in
+`output/corpus_sample_validated.csv` (`Correct=0` rows). Extending
+`protected_prefix_roots` word-by-word as more cases turn up is fine, but
+a real general fix still needs either a proper lexicon or removing each
+collision-prone prefix the way `অন` was — both bigger asks than this
+session took on.
 
-Fix would mean either looping each stage to a fixpoint (repeat until no
-rule matches) or restructuring the chain to revisit earlier tables after a
-later one strips something — needs some care to avoid infinite loops or
-over-stripping on repeated application.
+## `der_final_dict`'s `কর` occupational suffix over-fires on names/compounds ending the same way
+
+Found in the same corpus review: `কর` (der_final_dict, "assigning a
+quality") strips from words that aren't root+suffix at all —
+`নারভেকর` → `নারভে` (surname "Narvekar"), `পালকর` → `পাল` (surname
+"Palkar"), `চর্মকার` → `চর্মকা` (should stay `চর্মকার`, "leather
+worker" — `কার` here is the actual occupational-agent morpheme, not this
+suffix, but the two collide). Same "no lexicon" failure class as the
+prefix issue above; not fixed this session.
+
+## Several `sp_final_dict` possessive/case rules still over-strip on multi-syllable compounds
+
+Also found in the corpus review, distinct from the now-fixed `ার`/`া.ার`
+cases: words where a trailing `র` looks like the possessive marker but is
+actually the compound's own final consonant get the `র` stripped anyway,
+producing a broken remainder. Three of the five originally-found examples
+are now patched via `data/word_stem_overrides.csv` (see "Resolved this
+session" below): `পরীক্ষাগারেও`, `শর্তানুসারে`, `ডাকচিৎকারে`. Still open,
+same class, not yet individually confirmed/patched: `সত্যিকারই` →
+`সত্যিকা` (likely `সত্যিকার`), `মধ্যমকুমার` → `মধ্যমকুমা`. Root cause
+still not traced to one specific rule (these come from different `ার`-
+family entries firing on compounds where the trailing consonant is the
+compound's own, not a case marker) — the per-word override table is a
+patch for confirmed cases, not a fix for the underlying pattern.
+
+## `sp_initial_dict` stacked-suffix peeling — partially resolved, scoped narrowly on purpose
+
+`stem()` runs a fixed chain of six stages, each of which tries its rule
+table once, applies at most one match, and hands off to the next stage
+without revisiting an earlier table against the newly-shortened word. This
+meant a word with two stacked suffixes from the *same* dictionary only got
+one of them stripped, e.g. `মালিতেও` → `মালিতে` (only the emphatic `ও` was
+stripped; the locative `তে` exposed afterward belongs to `sp_initial_dict`,
+the table that had already run).
+
+**Fixed this session, but only for `sp_initial_dict` (stage 1)**:
+`_stem_one` now loops stage 1 to a small fixpoint (`মালিতেও` → `মালিতে` →
+`মালি`) before running the rest of the chain exactly once, unchanged.
+`মিঠুকেও` → `মিঠু` and `বিভ্রান্তিতেও` → `ভ্রান্তি` (suffix-wise; the
+`বি-` merge itself is the separate, still-open issue above) fixed the same
+way; `অষ্ট্রেলিয়াতেও` reaches the full `অষ্ট্রেলিয়া` instead of stopping
+at `অষ্ট্রেলিয়াতে`. Verified against the 94-word baseline (still 94/94)
+and the full 400-word corpus sample (4 words changed, all improvements,
+zero regressions); external gold scores both ticked up slightly
+(Dasgupta & Ng 41.8%→42.6%, Ahmed et al. 31.6%→33.3%).
+
+**A broader version — looping every stage, not just stage 1 — was tried
+and reverted.** It fixed the same cases plus a few more (e.g.
+`নেচেছি`→`নাচ`), but empirically introduced *as many new regressions* on
+the same 400-word sample: previously-correct outputs got re-processed a
+second time and over-fired on proper nouns/loanwords that coincidentally
+match a rule's ending, e.g. `ফোটোগ্রাফারদের` (photographers) correctly
+gave `ফোটোগ্রাফার` on one pass, but a second pass let `sp_final_dict`'s
+`ার` rule fire again on that already-correct result, giving `ফোটোগ্রাফা`;
+similarly `গ্যালাতাসারাই` (Galatasaray, a proper noun) went from the
+correct `গ্যালাতাসারা` to the wrong `গ্যালাতাসা` when `sp_initial_dict`'s
+`রা` (plural) key got a second try. Every rule in this stemmer is a bare
+regex with no lexicon behind it, so a second pass has no way to tell "a
+genuinely exposed new suffix boundary" from "a coincidental match on an
+already-complete word" — the same wall this file keeps hitting elsewhere
+(`ে.ে`, `অন`, `া.া.ার`). Restricting the loop to *only* stage 1, and only
+letting it re-fire the bare case markers (`তো`/`কে`/`তে`) rather than the
+full table (`ই`/`ও`/`রা` excluded — see `first_dict_repeat` in
+`stemmer.py`), was the narrowest scope that fixed the cited bug with zero
+observed regressions; extending it further needs the lexicon this session
+keeps deferring to, not more manual tuning of which keys are "safe."
+
+Stages 2–4 (`con_rep_dict`/`obv_rep_dict`/`sp_final_dict`) and the
+derivational stages still run exactly once each, as originally designed.
 
 There's a related, narrower instance of the same "leftmost re.search match
 wins, no rescanning" limitation: single-character patterns like the bare
@@ -35,20 +122,35 @@ same pattern. `দেখে` currently falls through to `sp_final_dict`'s `ে.�
 rule instead (now correctly left unchanged rather than false-merged, see
 below, but still not reduced to its own paradigm's `দেখ` root).
 
-## `sp_final_dict`'s `া.ার` rule can over-strip too, same failure class as the now-fixed `ার` rule
+## `sp_final_dict`'s `া.া.ার` rule conflates two different constructions and truncates on top of it
 
-Found while testing the `অন` prefix fix below: `অনাচার` ("misconduct")
-reduces to `অন`, not left unchanged or correctly split. Root cause: before
-reaching the prefix stage at all, `sp_final_dict`'s `া.ার` rule (meant for
-patterns like `কামার`/`জানার`) matches the word's trailing `াচার` and,
-since `checklen('অন') > 1`, strips it entirely rather than preserving the
-root's own vowel — the exact same class of bug the plain `ার` rule had
-(now fixed, see the session that resolved items below) but not yet applied
-to this related pattern (`া.ার`, and its cousin `া.া.ার`). Needs the same
-treatment: change the `rigid_wordlen > 1` branch's replacement to preserve
-the vowel sign instead of deleting it, then re-verify against the 94-word
-baseline and external gold sets, since these patterns are rarer and less
-tested than plain `ার` was.
+`া.া.ার` (two wildcards, meant for patterns like `নামাবার`/`জানালার`) has
+two separate problems, found while fixing the simpler one-wildcard `া.ার`
+rule (resolved this session, see below):
+
+1. **Template-length bug**: its replacement string `া.া` only has *one*
+   dot, but the pattern it's replacing has *two* wildcard positions. Since
+   `dot_replace` only walks as far as the replacement string is long, the
+   second consonant+vowel pair is silently dropped regardless of which
+   branch fires: `জানালার` ("of the window") → `জানা` ("knowing" — a
+   real but completely unrelated word), losing `ল`+`া` entirely. Should
+   be `জানালা`.
+2. **Conflates two real but different segmentations** that happen to
+   share this surface shape, and a lexicon-free regex can't tell them
+   apart: (a) causative verb root + `া` + the `-বার` gerund/infinitive
+   suffix, e.g. `নাম`(root)+`া`(causative)+`বার`(gerund) = `নামাবার`,
+   correct stem `নামা` — here the "second wildcard" position is actually
+   *inside* the suffix being stripped, not part of the root; vs.
+   (b) vowel-final noun root + bare `-র` possessive, e.g.
+   `জানালা`(window)+`র` = `জানালার`, correct stem `জানালা` — here the
+   second wildcard position *is* part of the root and must be kept.
+   Fixing (1) naively (extending the replacement to `া.া.া` to stop
+   truncating) fixes case (b) but breaks case (a) (`নামাবার` would become
+   `নামাবা` instead of the correct `নামা`). Left unfixed this session
+   since neither branch can be made correct for both cases without a
+   lexicon check on the reconstructed root — same class of problem as the
+   `ে.ে` harmony rule (now gated by `grammar.ee_harmony_roots`) and the
+   removed `অন` prefix.
 
 ## Derivational affixes found in Thompson (2012) but not added to `grammar.py`
 
@@ -105,6 +207,37 @@ attested affixes were tried and reverted, or skipped outright:
 **Resolved this session** (verified against the 94 `Correct=1` rows in
 `output/output_validated.csv`, 0 regressions each time):
 
+- Added `data/word_stem_overrides.csv` and wired it into `stemmer.py`
+  (`_stem_one`, checked first, before `closed_class_words`): a small,
+  individually-confirmed word → correct-stem lookup for 10 words found via
+  cross-checking against Morphemo (an independent statistical
+  morpheme-boundary predictor adapted for Bangla this session — see the
+  main `bangla-lexical-corpus` repo's `src/morphemo_audit.py` and
+  `HANDOFF.md`'s "Morphemo" section). Fixes: `চৌকীদারকে`→`চৌকীদার`,
+  `সমষ্টিরও`→`সমষ্টি`, `কয়েকফোটা` (left unchanged, was wrongly stripped),
+  `সম্মতে`→`সম্মত`, `সমৰ্পয়েৎ` (left unchanged — likely OCR/mixed-script
+  noise, not mangled further), `পরীক্ষাগারেও`→`পরীক্ষাগার`, `নিরুক্তে`→
+  `নিরুক্ত`, `বিছিয়েছে`/`শর্তানুসারে` (left unchanged, no confident better
+  target found). Each is the same recurring pattern this whole file
+  documents — a rule-table regex coincidentally matches the end of a word
+  that isn't actually root+that-suffix — but scattered across different
+  stages (`sp_initial_dict`'s `তে` rule, `sp_final_dict`'s `ার`/`টা`/`টির`
+  rules) with no single common cause, so a per-word override was the
+  narrow, safe fix rather than another speculative rule change. **Does
+  not generalize** to other inflected forms of the same roots (e.g.
+  `চৌকীদারের` isn't covered just because `চৌকীদারকে` is) — documented as
+  a known limitation in the override loader's own comment.
+- Wired `data/bn_closed_class_words.csv` (the draft pronoun/postposition/
+  conjunction/particle list, previously unused) into `stemmer.py`:
+  `BanglaStemmer` now loads it at init and `_stem_one` returns any word in
+  it completely unchanged, before any rule table runs. 64 of the 145
+  words in that list were getting mis-stemmed before this (none of the
+  rule tables know about closed-class function words — they're written
+  for content words): `উপরে`/`উপর` → `র`, `থেকে` → `থেক`, `বিনা` → `না`,
+  `দ্বারা` → `দ্বা`, etc. — full before-list in this session's history.
+  This list is still a **draft awaiting your review/edit** per its own
+  provenance; wiring it in doesn't require it to be finished, just
+  correct so far, so it's worth re-running this check if you edit it.
 - Added a bare present-tense `-ে` rule to `con_rep_dict` (`করে` → `কর`).
 - Gated `sp_final_dict`'s `ে.ে` vowel-harmony rule behind a small explicit
   whitelist (`grammar.ee_harmony_roots = {হাস, নাচ}`) instead of firing on
@@ -125,8 +258,14 @@ attested affixes were tried and reverted, or skipped outright:
   produced a nonsense fragment (`অনটন`→`টন`, `অনড়`→`ড়`, etc.), and the two
   examples its own comment cited as "genuine" cases never actually
   exercised the rule (one was blocked by `invalid_word_start`, the other
-  turns out to be caught by the `া.ার` bug logged above). Fixes the
-  confirmed `অনমনীয়` → `মনীয়` bug (Dasgupta & Ng gold set); words like
-  `অনমনীয়` are now left unchanged rather than wrongly merged — not the
-  ideal `অ`+`নমনীয়` split, but adding bare `অ-` was already ruled out
-  elsewhere in this file as too collision-prone without a lexicon.
+  turns out to be caught by a `sp_final_dict` bug, see next bullet).
+  Fixes the confirmed `অনমনীয়` → `মনীয়` bug (Dasgupta & Ng gold set);
+  words like `অনমনীয়` are now left unchanged rather than wrongly merged —
+  not the ideal `অ`+`নমনীয়` split, but adding bare `অ-` was already ruled
+  out elsewhere in this file as too collision-prone without a lexicon.
+- Fixed `sp_final_dict['া.ার']`'s long-root branch the same way as `ার`
+  above, preserving the root's vowel-consonant-vowel shape instead of
+  deleting the whole match (`ঠিকানার` → `ঠিকানা`, not `ঠিক`). Its
+  two-wildcard cousin `া.া.ার` has a deeper, unresolved problem — logged
+  as its own item above rather than fixed, since it needs a lexicon check
+  to do correctly.

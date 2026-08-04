@@ -1,10 +1,11 @@
-from os.path import dirname, abspath
+from os.path import dirname, abspath, join
 from typing import Dict, List
+import csv
 import re
 
 import grammar
 
-# d = dirname(dirname(abspath(__file__)))
+_REPO_ROOT = dirname(abspath(__file__))
 
 class BanglaStemmer:
 
@@ -17,6 +18,40 @@ class BanglaStemmer:
 
     def __init__(self):
         self.grammarParser()
+        self.closed_class_words = self._load_closed_class_words()
+        self.word_stem_overrides = self._load_word_stem_overrides()
+
+    def _load_word_stem_overrides(self):
+        # Individually-confirmed word -> correct-stem exceptions
+        # (data/word_stem_overrides.csv), found via cross-checking against
+        # Morphemo (an independent statistical segmenter, see
+        # src/morphemo_audit.py in the main bangla-lexical-corpus repo) and
+        # manually verified. Each is a case where a rule-table pattern
+        # coincidentally matches the end of a word that isn't actually
+        # root+that-suffix (e.g. চৌকীদারকে: the 'ার' rule strips the
+        # Persian agentive suffix -দার as if '-ার' were case marker + the
+        # root's own vowel). Checked against the word's ORIGINAL surface
+        # form only, same as closed_class_words -- this does NOT generalize
+        # to other inflected forms of the same root (e.g. চৌকীদারের isn't
+        # covered just because চৌকীদারকে is); it's a narrow, evidence-based
+        # patch for these specific confirmed cases, not a new rule.
+        path = join(_REPO_ROOT, 'data', 'word_stem_overrides.csv')
+        with open(path, encoding='utf-8') as f:
+            return {row['Word']: row['Stem'] for row in csv.DictReader(f)}
+
+    def _load_closed_class_words(self):
+        # Pronouns/postpositions/conjunctions/particles (draft list,
+        # data/bn_closed_class_words.csv) that stem() must leave untouched
+        # entirely: 64 of the 145 words in this list currently get
+        # mis-stemmed by the rule tables below if not special-cased (e.g.
+        # উপরে/উপর -> র, থেকে -> থেক, বিনা -> না), since none of those
+        # tables know about closed-class function words -- they're written
+        # for content words. Checked against the word's ORIGINAL surface
+        # form only (see stem()); this list is a draft awaiting the
+        # project owner's review, per the data file's own provenance notes.
+        path = join(_REPO_ROOT, 'data', 'bn_closed_class_words.csv')
+        with open(path, encoding='utf-8') as f:
+            return frozenset(row['Word'] for row in csv.DictReader(f))
 
     def grammarParser(self):
         self.first_dict = grammar.sp_initial_dict
@@ -25,6 +60,20 @@ class BanglaStemmer:
         self.fourth_dict = grammar.sp_final_dict
         self.fifth_dict = grammar.der_initial_dict # Swarnendu added
         self.sixth_dict = grammar.der_final_dict # Swarnendu added
+        # sp_initial_dict entries that are safe to try a SECOND time, after
+        # an emphatic particle (ই/ও) has already been stripped from the
+        # same word -- see _stem_one. Restricted to bare case/classifier
+        # markers (তো/কে/তে) that genuinely stack after an emphatic in
+        # normal Bangla morphology (মালিতে+ও, মিঠু+কে+ও). ই and ও
+        # themselves are excluded (a word can't take the same emphatic
+        # twice); রা (plural) is also excluded even though it's a real
+        # sp_initial_dict key -- empirically, re-trying it on an
+        # already-once-reduced word over-fires on proper nouns/loanwords
+        # that coincidentally end in রা (গ্যালাতাসারা "Galatasaray" ->
+        # wrongly to গ্যালাতাসা), since প্লুরাল-রা is normally the
+        # FIRST suffix layer after the root, not something exposed by
+        # stripping a later emphatic.
+        self.first_dict_repeat = {k: v for k, v in self.first_dict.items() if k in ('তো', 'কে', 'তে')}
 
     def checklen(self, word):
         skip_wrd = ['া', 'ি', 'ী', 'ু', 'ূ', 'ৃ', 'ে', 'ৈ', 'ো', 'ৌ']
@@ -105,6 +154,12 @@ class BanglaStemmer:
         # index[1] replacement. None of the current replacement strings
         # contain '.', so no dot_replace-style vowel preservation is needed.
         grep = word
+        if word.startswith(grammar.protected_prefix_roots):
+            # Confirmed monomorphemic/lexicalized word (see
+            # grammar.protected_prefix_roots) -- don't let any prefix rule
+            # touch it at all, rather than trying to guess which specific
+            # rule would have false-fired.
+            return grep
         for rules in self.fifth_dict:
             result = re.match(rules, word)
             if result:
@@ -218,9 +273,11 @@ class BanglaStemmer:
         grep = self.apply_thrd_rule(grep)
         return grep
 
-    def apply_frst_rule(self, word):
+    def apply_frst_rule(self, word, repeat=False):
         grep = word
-        for rules in self.first_dict:
+        fired = False
+        first_dict = self.first_dict_repeat if repeat else self.first_dict
+        for rules in first_dict:
             result = re.search(rules, word)
             if not result:
                 continue
@@ -231,30 +288,54 @@ class BanglaStemmer:
                 continue
             rigid_wordlen = self.checklen(grep[0:initial_index])
             if rigid_wordlen > 1:
-                rplc = self.first_dict[rules][1]
+                rplc = first_dict[rules][1]
                 if '.' in rplc:
                     grep = self.dot_replace(word, initial_index, rplc)
                 else:
                     grep = self.dirrect_replace(word, initial_index, rplc)
+                fired = True
                 break
             elif rigid_wordlen == 1:
-                rplc = self.first_dict[rules][0]
+                rplc = first_dict[rules][0]
                 if '.' in rplc:
                     grep = self.dot_replace(word, initial_index, rplc)
                 else:
                     grep = self.dirrect_replace(word, initial_index, rplc)
+                fired = True
                 break
-        grep = self.apply_scnd_rule(grep)
-        return grep
+        return grep, fired
+
+    # sp_initial_dict strips at most one case/emphatic marker, then hands
+    # off to the rest of the (otherwise unchanged, single-pass) chain --
+    # it never gets a second look at a word it's already touched. So a
+    # word with two stacked sp_initial_dict markers only gets one peeled:
+    # মালিতেও -> মালিতে, where the locative তে exposed by stripping the
+    # emphatic ও belongs to the same table that just ran and doesn't run
+    # again. Loop *only* this one stage to a fixpoint (see
+    # first_dict_repeat above for why it's narrowed on repeat passes),
+    # then run the rest of the chain -- con_rep/obv_rep/sp_final/
+    # der_final/der_initial -- exactly once, unchanged from the original,
+    # 94-word-baseline-validated architecture. A broader loop (every stage
+    # re-tried, tried and reverted) empirically over-fired on proper nouns
+    # and loanwords that coincidentally match a rule's ending on their
+    # SECOND pass nearly as often as it fixed genuine stacking.
+    MAX_FIRST_STAGE_PASSES = 5
+
+    def _stem_one(self, word):
+        if word in self.word_stem_overrides:
+            return self.word_stem_overrides[word]
+        if word in self.closed_class_words:
+            return word
+        current, fired = self.apply_frst_rule(word, repeat=False)
+        for _ in range(self.MAX_FIRST_STAGE_PASSES - 1):
+            if not fired:
+                break
+            current, fired = self.apply_frst_rule(current, repeat=True)
+        return self.apply_scnd_rule(current)
 
     def stem(self, wordarg):
-        stemlist = []
-        stemword = ''
         if isinstance(wordarg, list):
-            for word in wordarg:
-                stemlist.append(self.apply_frst_rule(word))
-            return stemlist
+            return [self._stem_one(word) for word in wordarg]
         elif isinstance(wordarg, str):
-            stemword = self.apply_frst_rule(wordarg)
-            return stemword
+            return self._stem_one(wordarg)
         

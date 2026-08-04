@@ -1,0 +1,11 @@
+Word,Stem,Remarks
+চৌকীদারকে,চৌকীদার,ার rule strips the Persian agentive suffix -দার as if it were case marker + root vowel; confirmed via Morphemo audit
+সমষ্টিরও,সমষ্টি,টির rule + stage1 ও-stripping cascade over-strips to a meaningless fragment; confirmed via Morphemo audit
+কয়েকফোটা,কয়েকফোটা,টা rule wrongly treats ফোটা (drop) as classifier+টা; confirmed via Morphemo audit
+সম্মতে,সম্মত,stage1 তে rule assumes bare locative -তে is a 2-char suffix but ত belongs to the root; confirmed via Morphemo audit
+সমৰ্পয়েৎ,সমৰ্পয়েৎ,likely mixed-script/OCR noise token; left unchanged rather than mangled further; confirmed via Morphemo audit
+পরীক্ষাগারেও,পরীক্ষাগার,ার rule over-strips this compound (laboratory); confirmed via Morphemo audit
+নিরুক্তে,নিরুক্ত,same stage1 তে root-vs-suffix ambiguity as সম্মতে; confirmed via Morphemo audit
+বিছিয়েছে,বিছিয়েছে,badly mangled by the regex chain; no confident better target found, left unchanged
+শর্তানুসারে,শর্তানুসারে,trailing র wrongly stripped from this compound; no confident better target found, left unchanged
+ডাকচিৎকারে,ডাকচিৎকার,ার rule over-strips this compound (shouting); confirmed via Morphemo audit
