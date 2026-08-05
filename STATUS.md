@@ -65,26 +65,52 @@ Read this first when picking the stemmer work back up.
    common nouns is closer to what a tagger's actually good at than a
    closed morphological class was).
 
+3. **Same session, picked back up after "go ahead"**: what looked like a
+   `dot_replace`-preserves-candrabindu bug turned out, on inspection, to
+   be a different and separate gap — the plain `ে.ে` pattern structurally
+   can't match candrabindu-bearing words at all (they're 5 codepoints,
+   not 4), so those words were being left completely unstemmed, not
+   mis-stemmed. The original 5 held-back roots (`কাদ`/`বাচ`/`ঘাট`/`কাপ`/
+   `হাট`) were never a candrabindu issue in the first place — each
+   collides with an unrelated, higher-frequency word using the exact
+   same 4-codepoint spelling instead (`কাদা` "mud", `ঘাট` "riverbank"
+   noun, `কাপ` "cup" loanword, `হাটে` "at the market", `বাচ` swamped by
+   `বেচে` "sells", an unrelated verb). Corrected `to_fix.md`'s record
+   rather than leave the wrong diagnosis standing.
+
+   Added a real fix for the actual gap: a second `sp_final_dict` key,
+   `'েঁ.ে'`, alongside the plain `'ে.ে'` one, gated by the same
+   `ee_harmony_roots` whitelist (`ee_harmony_rule_key` → plural
+   `ee_harmony_rule_keys`, a set of both). Ran the identical
+   candidate-discovery + corpus cross-validation methodology on the
+   134-word candrabindu-shaped candidate set: **7 roots** cleared the
+   threshold (`বাঁধ`/`হাঁট`/`বাঁচ`/`কাঁদ`/`কাঁপ`/`গাঁথ`/`রাঁধ` — tie,
+   walk, survive, cry, tremble, string/thread, cook), covering **~4.2M**
+   more token occurrences. Correctly left alone: `পেঁপে` "papaya" (noun),
+   `বেঁটে` "short" (adjective) — same surface shape, not verbs. Full
+   detail in `to_fix.md`'s "Resolved this session" entry.
+
+   94/94 baseline holds; external gold flat again (same reasoning as the
+   first fix — different, smaller vocabulary than either fix targets).
+
 ## Current repo state (as of this session's end)
 
-- `to_fix.md` now has **6 open issues** (added one this session: the
-  candrabindu-loss bug in `dot_replace`, found while building the
-  whitelist expansion above).
+- `to_fix.md` now has **5 open issues** (net: added the candrabindu gap,
+  then fully resolved it the same session, so it nets out to one fewer
+  than this session started with).
 - `output/corpus_sample_validated.csv`: still **380/400** reviewed, same
   20 blank rows as before — untouched this session.
-- Committed and pushed to `origin/main`: the housekeeping revert +
-  `ee_harmony_roots` expansion. Check `git log` for exact hashes if
-  picking this up later; not re-stating them here since STATUS.md itself
-  isn't the source of truth for that, git is.
+- Committed and pushed to `origin/main`: the housekeeping revert, the
+  `ee_harmony_roots` expansion, and the candrabindu-pattern fix. Check
+  `git log` for exact hashes if picking this up later; not re-stating
+  them here since STATUS.md itself isn't the source of truth for that,
+  git is.
 
 ## Plan for next session
 
 1. Still pending: finish the 20-row `corpus_sample_validated.csv` review
    (your own linguistic judgment).
 2. Pick a `to_fix.md` item. Candidates, roughly by effort:
-   - **Candrabindu-loss bug** (new, this session) — fix `dot_replace` to
-     reattach it, would unlock the 5 held-back harmony roots
-     (কাঁদ/বাঁচ/ঘাঁট/কাঁপ/হাঁট).
    - **`কর`/`কার` surname collision** — smallest untouched item; possibly
      a genuine fit for `bnlp-toolkit`'s POS/NER tagging now that it's
      installed and proven to work (surname vs. common-noun is a more
@@ -92,5 +118,9 @@ Read this first when picking the stemmer work back up.
    - Sanskrit-prefix over-firing beyond the 9-word seed, or the
      `া.া.ার` two-wildcard conflation — both still need a lexicon-style
      check, no new idea for either this session.
+   - Lower-confidence harmony roots left out this session (`ঘাঁটা`
+     "rummage", `ভাঁজ` "fold", `ছাঁটা` "trim", `ফাঁপা` "swell", `ফাঁসা`
+     "get trapped") could be revisited with a relaxed threshold or a
+     manual per-word confirmation instead of pure corpus evidence.
 3. Longer-term, still unstarted: packaging as a real importable package,
    and the stem-level statistics phase once a "good enough" call is made.

@@ -203,7 +203,7 @@ class BanglaStemmer:
                     candidate = self.dot_replace(word, initial_index, rplc)
                 else:
                     candidate = self.dirrect_replace(word, initial_index, rplc)
-                if rules == grammar.ee_harmony_rule_key and candidate not in grammar.ee_harmony_roots:
+                if rules in grammar.ee_harmony_rule_keys and candidate not in grammar.ee_harmony_roots:
                     # Cons-e-Cons-e shape matched, but not one of the
                     # attested vowel-harmony roots -- likely a coincidental
                     # match (ছেলে, দেখে), not a real alternation. Skip this

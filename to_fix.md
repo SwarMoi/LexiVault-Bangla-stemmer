@@ -202,27 +202,6 @@ attested affixes were tried and reverted, or skipped outright:
   etymology than the rest of `der_initial_dict`, and untested against
   loanword vocabulary.
 
-## `sp_final_dict`'s `ে.ে` rule drops চন্দ্রবিন্দু (candrabindu) on roots that need one
-
-Found while cross-validating candidate `ee_harmony_roots` additions
-(2026-08-05, see "Resolved this session" below): `dot_replace`'s
-`ে.ে` → `া.` substitution doesn't preserve a candrabindu that belongs on
-the reconstructed root. 5 real harmony verbs need one —
-`কাঁদ` (কেঁদে "having cried"), `বাঁচ` (বেঁচে "having survived"), `ঘাঁট`
-(ঘেঁটে "having rummaged"), `কাঁপ` (কেঁপে "having trembled"), `হাঁট`
-(হেঁটে "having walked") — but the mechanical output comes out
-candrabindu-less as `কাদ`/`বাচ`/`ঘাট`/`কাপ`/`হাট`, and every one of those
-happens to collide with an unrelated real word too (`কাদা` "mud", `ঘাট`
-"riverbank/dock", `কাপ` "cup" loanword, `হাট` "market" — this last one is
-why the corpus-evidence check for `হাট` looked strong at all: its
-frequency is dominated by the noun reading, `হাটে` "at the market", not
-the verb; `বাচ` alone isn't a real word but still isn't the right root).
-Deliberately held all 5 back from `ee_harmony_roots` rather than add them
-with a known-wrong output. Fixing this needs `dot_replace` (or a small
-special-case list) to reattach the candrabindu, not just avoid the words
-— not attempted this session. (A 6th candidate, `হাজ`, was held back for
-an unrelated reason — see "Resolved this session" below.)
-
 ---
 
 **Resolved this session** (verified against the 94 `Correct=1` rows in
@@ -249,13 +228,48 @@ an unrelated reason — see "Resolved this session" below.)
   with real, comparable frequency; coincidental matches (`তা+ার`="তার"
   the pronoun, noun `মাথা`→root-shape `মাথ`) don't. Threshold: both
   forms >=5000, neither more than 50x the other — 34 candidates cleared
-  it, 6 held back (5 for a newly-found candrabindu bug, see the open
-  issue above; 1, `হাজ`, for weak/inconsistent evidence), leaving 28
-  confirmed new roots. No change on either external gold set (different,
-  smaller vocabulary — expected), but 31 word types / **~33M token
-  occurrences** in the real corpus now correctly reduce to their root
-  instead of being left unstemmed. `bnlp-toolkit`/POS-tagging is proven
-  to work and stays installed for other uses; just not this rule.
+  it, 6 held back: 5 (`কাদ`/`বাচ`/`ঘাট`/`কাপ`/`হাট`) each turned out to
+  collide with an unrelated, higher-frequency reading of the exact same
+  4-codepoint spelling (`কাদা` "mud", `ঘাট` "riverbank/dock" noun, `কাপ`
+  "cup" loanword, `হাটে` "at the market" noun-locative dominating that
+  root's frequency, `বাচ` swamped by `বেচে` "sells" — an unrelated verb
+  spelled identically); the 6th, `হাজ`, had weak/inconsistent evidence
+  either way. Leaves 28 confirmed new roots. No change on either
+  external gold set (different, smaller vocabulary — expected), but 31
+  word types / **~33M token occurrences** in the real corpus now
+  correctly reduce to their root instead of being left unstemmed.
+  `bnlp-toolkit`/POS-tagging is proven to work and stays installed for
+  other uses; just not this rule.
+- **2026-08-05, later same session**: found a second, genuinely separate
+  gap while doing the above — `ে.ে`'s single-char wildcard can't match
+  words carrying a চন্দ্রবিন্দু (candrabindu) at all, since it sits as
+  its own codepoint between the vowel sign and the medial consonant
+  (`কেঁদে` "having cried" is 5 codepoints — `ক,ে,ঁ,দ,ে` — not 4), so
+  these words were being left completely unstemmed, not mis-stemmed.
+  (An earlier version of this file's write-up wrongly framed the 5
+  held-back roots above, `কাদ`/`বাচ`/`ঘাট`/`কাপ`/`হাট`, as candrabindu
+  loss — they aren't; those are plain 4-codepoint spellings with nothing
+  to lose, held back for the unrelated collision reasons stated above.
+  Correcting the record here rather than leaving the wrong diagnosis in
+  git history uncorrected.) Added a dedicated `'েঁ.ে'` key to
+  `sp_final_dict` (`grammar.py`) alongside the plain `'ে.ে'` one, gated
+  by the same `ee_harmony_roots` whitelist (`ee_harmony_rule_key` became
+  `ee_harmony_rule_keys`, a set of both). Ran the identical
+  candidate-discovery + corpus cross-validation on the 134-word
+  `েঁ.ে$`-shaped candidate set: only **7 roots** cleared the threshold
+  (`বাঁধ`/`হাঁট`/`বাঁচ`/`কাঁদ`/`কাঁপ`/`গাঁথ`/`রাঁধ` — all common,
+  unambiguous verbs: tie, walk, survive, cry, tremble, string/thread,
+  cook), covering 7 real corpus words and **~4.2M token occurrences**
+  (`বেঁচে` 1.7M, `বেঁধে` 1.2M, `হেঁটে` 648K, `কেঁদে` 292K, `কেঁপে` 255K,
+  `গেঁথে` 115K, `রেঁধে` 20K). Correctly left unchanged: `পেঁপে` "papaya"
+  (noun), `বেঁটে` "short" (adjective) — both structurally match the
+  shape but aren't verbs at all. Several other real verbs in that
+  134-word set (`ঘাঁটা` "rummage", `ভাঁজ` "fold", `ছাঁটা` "trim", `ফাঁপা`
+  "swell", `ফাঁসা` "get trapped"...) didn't clear the frequency
+  threshold and were left out on the same precision-over-recall logic as
+  everywhere else in this file — revisit with a lower bar if that trade
+  looks wrong later. 94/94 baseline holds; external gold flat again
+  (same reasoning as above).
 - Added `data/word_stem_overrides.csv` and wired it into `stemmer.py`
   (`_stem_one`, checked first, before `closed_class_words`): a small,
   individually-confirmed word → correct-stem lookup for 10 words found via

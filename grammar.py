@@ -163,6 +163,16 @@ sp_final_dict = {
     #---------------#
     'েশে':['েশ', 'েশ'],        # দেশে কেশে
     'ে.ে':['া.', 'ে.'],         # হেসে নেচে -- gated by ee_harmony_roots, see below
+    'েঁ.ে':['াঁ.', 'েঁ.'],       # কেঁদে, বেঁচে -- candrabindu-bearing cousin of
+                                 # the rule above. A literal চন্দ্রবিন্দু sits
+                                 # between the vowel sign and the medial
+                                 # consonant (কেঁদে is 5 codepoints: ক,ে,ঁ,দ,ে),
+                                 # so the plain 'ে.ে' pattern's single-char
+                                 # wildcard structurally can't match these
+                                 # words at all -- they were being left
+                                 # completely unstemmed, not mis-stemmed.
+                                 # Needs its own gated key; see
+                                 # ee_harmony_rule_keys below and to_fix.md.
     'া.া.ার':['া.া', ''],   # নামাবার, জানালার
     'া.ার':['া.া', 'া.া'],   # কামার, জানার
     'ের':['ের', ''],        # শের
@@ -204,19 +214,32 @@ sp_final_dict = {
 # infinitive, e.g. কাটতে) with real, comparable frequency; coincidental
 # matches (তা+ার="তার", noun মাথা->"মাথ") don't. Threshold: both forms
 # >=5000 and neither more than 50x the other. 6 candidates that cleared
-# the threshold were held back anyway because the rule's dot_replace
-# mechanism drops the চন্দ্রবিন্দু (candrabindu) their real spelling
-# needs -- কাঁদ/বাঁচ/ঘাঁট/কাঁপ/হাঁট would come out as কাদ/বাচ/ঘাট/কাপ/হাট,
-# still wrong, just wrong in a new way; logged as its own to_fix.md item
-# rather than fixed here.
+# the threshold were held back anyway: 5 (কাদ/বাচ/ঘাট/কাপ/হাট) each
+# collide with an unrelated, higher-frequency reading of the exact same
+# spelling once double-checked -- কাদা "mud", ঘাট "riverbank/dock" noun,
+# কাপ "cup" loanword, হাটে "at the market" (noun locative), and বাচ
+# is dominated by বেচে "sells" (from বেচা, an unrelated verb spelled
+# identically); the 6th, হাজ, had weak/inconsistent evidence either way.
+# (An earlier version of this comment blamed a candrabindu-loss bug for
+# these 5 -- wrong; they're plain 4-codepoint words with nothing to
+# lose. The candrabindu-bearing cousins of these same roots, e.g. কাঁদ
+# for কেঁদে, are a genuinely separate set of lexicon entries the old
+# pattern never matched at all -- see 'েঁ.ে' above and its own roots
+# below.)
 ee_harmony_roots = {
     'হাস', 'নাচ',
     # 28 below added from the Phase B corpus cross-validation:
     'জান', 'রাখ', 'মার', 'টান', 'কাট', 'ভাব', 'মান', 'নাম', 'চাপ', 'ভাঙ',
     'সাজ', 'পার', 'লাগ', 'হান', 'ভাজ', 'ছাপ', 'হার', 'ভাস', 'মাখ', 'ঢাল',
     'ফাট', 'বাজ', 'থাম', 'মাপ', 'জাগ', 'চাট', 'খাট', 'মাজ',
+    # candrabindu-bearing roots (েঁ.ে pattern), added the same session
+    # after cross-validating the 134-candidate েঁ.ে$ set the same way.
+    # Several real verbs (ঘাঁট, ভাঁজ, ছাঁট, ফাঁপ, ফাঁস...) didn't clear
+    # the frequency threshold and were left out rather than added on
+    # weaker evidence -- see to_fix.md if revisiting with a lower bar:
+    'বাঁধ', 'হাঁট', 'বাঁচ', 'কাঁদ', 'কাঁপ', 'গাঁথ', 'রাঁধ',
 }
-ee_harmony_rule_key = 'ে.ে'
+ee_harmony_rule_keys = {'ে.ে', 'েঁ.ে'}
 
 # Words confirmed (corpus_sample_validated.csv review) to be fully
 # lexicalized/monomorphemic in modern Bangla despite starting with what
