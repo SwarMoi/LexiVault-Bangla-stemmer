@@ -202,11 +202,60 @@ attested affixes were tried and reverted, or skipped outright:
   etymology than the rest of `der_initial_dict`, and untested against
   loanword vocabulary.
 
+## `sp_final_dict`'s `ে.ে` rule drops চন্দ্রবিন্দু (candrabindu) on roots that need one
+
+Found while cross-validating candidate `ee_harmony_roots` additions
+(2026-08-05, see "Resolved this session" below): `dot_replace`'s
+`ে.ে` → `া.` substitution doesn't preserve a candrabindu that belongs on
+the reconstructed root. 5 real harmony verbs need one —
+`কাঁদ` (কেঁদে "having cried"), `বাঁচ` (বেঁচে "having survived"), `ঘাঁট`
+(ঘেঁটে "having rummaged"), `কাঁপ` (কেঁপে "having trembled"), `হাঁট`
+(হেঁটে "having walked") — but the mechanical output comes out
+candrabindu-less as `কাদ`/`বাচ`/`ঘাট`/`কাপ`/`হাট`, and every one of those
+happens to collide with an unrelated real word too (`কাদা` "mud", `ঘাট`
+"riverbank/dock", `কাপ` "cup" loanword, `হাট` "market" — this last one is
+why the corpus-evidence check for `হাট` looked strong at all: its
+frequency is dominated by the noun reading, `হাটে` "at the market", not
+the verb; `বাচ` alone isn't a real word but still isn't the right root).
+Deliberately held all 5 back from `ee_harmony_roots` rather than add them
+with a known-wrong output. Fixing this needs `dot_replace` (or a small
+special-case list) to reattach the candrabindu, not just avoid the words
+— not attempted this session. (A 6th candidate, `হাজ`, was held back for
+an unrelated reason — see "Resolved this session" below.)
+
 ---
 
 **Resolved this session** (verified against the 94 `Correct=1` rows in
 `output/output_validated.csv`, 0 regressions each time):
 
+- **2026-08-05**: Expanded `grammar.py`'s `ee_harmony_roots` from
+  `{হাস, নাচ}` to 30 roots. Originated from Task #14 (paused POS-tagging
+  plan): built `bnlp-toolkit` into the main repo's `.venv` and tested
+  POS-verb-tagging as the gate instead of a hardcoded whitelist, but
+  found it doesn't work for this rule specifically — verb-tagging can't
+  distinguish real harmony roots (`রাখ→রেখে`) from verbs whose root
+  already ends in a bare e (`দেখ→দেখে`, `ফেল→ফেলে`); on a 40-word
+  frequency-ranked real sample it would have wrongly transformed 7 of the
+  highest-frequency candidates (`দেখে` 8.2M corpus occurrences, `ফেলে`
+  3.6M, `দেবে` 3.1M, `নেবে`, `মেলে`, `ঠেলে`, `বেগে`) into garbage roots.
+  Pivoted instead to what the data showed this actually is: a **closed**
+  lexical class. Built the full 477-word candidate set (every
+  `lexicon.parquet` type, freq >= 100, whose `stem()` output differs
+  between the whitelist gate on vs. off — a precise superset, not a raw
+  `ে.ে$` regex guess, which overcounts ~15x by also matching words other,
+  earlier-priority rules intercept first). Cross-validated each candidate
+  root against the lexicon itself: a genuine root should appear as both
+  `root+া` (infinitive/verbal noun) and `root+তে` (purposive infinitive)
+  with real, comparable frequency; coincidental matches (`তা+ার`="তার"
+  the pronoun, noun `মাথা`→root-shape `মাথ`) don't. Threshold: both
+  forms >=5000, neither more than 50x the other — 34 candidates cleared
+  it, 6 held back (5 for a newly-found candrabindu bug, see the open
+  issue above; 1, `হাজ`, for weak/inconsistent evidence), leaving 28
+  confirmed new roots. No change on either external gold set (different,
+  smaller vocabulary — expected), but 31 word types / **~33M token
+  occurrences** in the real corpus now correctly reduce to their root
+  instead of being left unstemmed. `bnlp-toolkit`/POS-tagging is proven
+  to work and stays installed for other uses; just not this rule.
 - Added `data/word_stem_overrides.csv` and wired it into `stemmer.py`
   (`_stem_one`, checked first, before `closed_class_words`): a small,
   individually-confirmed word → correct-stem lookup for 10 words found via

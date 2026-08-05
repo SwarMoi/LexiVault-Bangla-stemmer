@@ -5,92 +5,92 @@ Read this first when picking the stemmer work back up.
 ## What we did this session
 
 1. **Housekeeping, overdue since Aug 1**: pushed the 2 local-only commits
-   to `origin/main` (`3f78233..b86e04e`). Moved `Bengali (Thompson).pdf`
-   (full commercial textbook, was sitting untracked in the repo root)
-   out of the git working tree entirely, onto the external drive at
+   to `origin/main`. Moved `Bengali (Thompson).pdf` (full commercial
+   textbook, was sitting untracked in the repo root) out of the git
+   working tree entirely, onto the external drive at
    `/Volumes/G-DRIVE-PRO/bangla-lexical-corpus-data/docs/LexiVault-Bangla-stemmer/`
-   — it was never committed, so no history to scrub, and nothing in code
+   — never committed, so no history to scrub, and nothing in code
    referenced its path (only page-number citations in `grammar.py`
-   comments), so no symlink needed back in the repo.
+   comments). **Note**: an earlier attempt this session to also move the
+   repo's own `.md` docs onto the drive (symlinks in-repo) was tried and
+   then reverted the same session — it silently broke git tracking of
+   doc edits, and the copyrighted PDF briefly, confusingly reappeared in
+   the repo mid-session (Dropbox restoring it faster than expected after
+   the first move). Docs are back to being regular tracked files;
+   PDF-off-repo is the only thing that stuck from that detour.
 
-   Also: all of this repo's own `.md` docs (`README.md`, `STATUS.md`,
-   `to_fix.md`, both `external_gold/*/SOURCE.md`) were moved the same
-   way this session, replaced with symlinks in-repo — see the parent
-   `bangla-lexical-corpus` repo's `HANDOFF.md`/`corpus.md` for why
-   (getting project docs out of the Dropbox sync path). Doesn't change
-   how anything reads — `open('STATUS.md')` etc. still works.
+2. **Task #14 (POS-tagging for the vowel-harmony gate) — ran the
+   proof-of-concept, then pivoted based on what it found.**
+   `bnlp-toolkit` (4.4.1) installed into the main repo's `.venv`,
+   confirmed CPU-only. API note: `bnlp.create_pos_pipeline()` is broken
+   in this version (`'BengaliPOS' object is not callable`); use
+   `bnlp.BengaliPOS(model_path=...).tag(text)` directly — model
+   auto-downloads to `~/bnlp/models/bn_pos.pkl` on first use. Verb tags:
+   `VM`, `VAUX`.
 
-2. **Started Task #14 (POS-tagging for the vowel-harmony gate), Phase A
-   proof-of-concept.** Goal: replace the hardcoded
-   `grammar.ee_harmony_roots = {হাস, নাচ}` whitelist with a real POS-tag
-   gate on `sp_final_dict`'s `ে.ে` rule (only fire on verbs).
+   Small hand-picked test (13 words) looked promising (85%), but a
+   properly-built sample said otherwise: constructed the real 477-word
+   candidate set (every `ে.ে`-shaped `lexicon.parquet` type, freq>=100,
+   whose `stem()` output actually depends on the `ee_harmony_roots`
+   gate — not a raw regex guess, which overcounts ~15x by also catching
+   words other rules intercept first). On the top 40 by frequency,
+   POS-verb-tagging hit 73.7% — clears the plan's ≥70% bar on paper, but
+   would have wrongly transformed 7 of the highest-frequency words
+   (`দেখে` 8.2M corpus occurrences, `ফেলে`, `দেবে`, `নেবে`, `মেলে`,
+   `ঠেলে`, `বেগে`) into garbage roots. Root cause: verb-tagging can't
+   distinguish real harmony roots (`রাখ→রেখে`) from verbs whose root
+   already ends in a bare e (`দেখ→দেখে`) — both are just "VERB" to a POS
+   tagger. That's a different, finer-grained distinction than POS
+   category.
 
-   - Installed `bnlp-toolkit` (4.4.1) into the main repo's `.venv`
-     (Python 3.12) — confirmed CPU-only, no `torch` pulled in, matches
-     what was expected when this tool was chosen.
-   - API note for next time: `bnlp.create_pos_pipeline()` is currently
-     broken in this version (`'BengaliPOS' object is not callable` —
-     looks like a real bug in bnlp-toolkit's own `Pipeline` wiring, not
-     something on our end). Bypassed it — use `bnlp.BengaliPOS` directly:
-     ```python
-     from bnlp import BengaliPOS
-     tagger = BengaliPOS(model_path='/Users/lab/bnlp/models/bn_pos.pkl')
-     tagger.tag('সে জোরে হেসে উঠল।')  # -> [('সে','PPR'), ('জোরে','NC'), ('হেসে','VM'), ('উঠল','VAUX'), ('।','PU')]
-     ```
-     The `bn_pos.pkl` CRF model (3.7MB) auto-downloads on first use to
-     `~/bnlp/models/`. Verb tags to treat as "VERB" for the gate: `VM`,
-     `VAUX`.
-   - **Tested on the actual target words**, both in a full sentence and
-     as a bare isolated word (the real input shape — the stemmer runs on
-     `lexicon.parquet` word *types*, not sentences, so sentence-context
-     wasn't guaranteed to transfer):
-     | word | in context | bare word | expected |
-     |---|---|---|---|
-     | হেসে (whitelisted) | VM ✓ | VM ✓ | VERB |
-     | নেচে (whitelisted) | VM ✓ | VM ✓ | VERB |
-     | ছেলে (the actual false-merge target, noun "boy") | NC ✓ | NC ✓ | NOT_VERB |
-     | দেখে (not whitelisted, currently left unstemmed) | VM ✓ | VM ✓ | VERB |
-     | খেলে (not whitelisted) | NC ✗ | NC ✗ | VERB (missed both times) |
-     | ঠেলে (not whitelisted) | VM ✓ | VM ✓ | VERB |
+   **Pivoted**: this is actually a closed lexical class (a fixed,
+   learnable list of Bengali verb roots), not an open-class disambiguation
+   problem — so directly expanding the whitelist from data beats gating
+   with POS tags. Cross-validated all 477 candidates against the lexicon
+   itself (does `root+া` and `root+তে` both exist with real, comparable
+   frequency?) and expanded `ee_harmony_roots` from 2 roots to 30. Full
+   detail, evidence, and the 6 held-back candidates are in `to_fix.md`'s
+   "Resolved this session" entry — don't re-derive here.
 
-     **11/13 (85%)**, clears the plan's ≥70% go/no-go bar, and — the
-     important part — accuracy barely dropped with zero sentence context
-     (6/7 → 5/6), so the CRF's per-token/suffix features carry most of
-     the signal, not context. The one consistent miss, `খেলে`, is
-     genuinely ambiguous even to a human reading it with no context (verb
-     "plays" vs. a citation-form noun reading).
+   Verified: **94/94 baseline**, external gold flat (Dasgupta & Ng
+   42.7%, Ahmed et al. 33.9% — unchanged, different vocabulary than what
+   this fix targets), but **31 word types / ~33M token occurrences** in
+   the real corpus now correctly reduce to their root instead of being
+   left unstemmed.
 
-   **This is a real signal, not a rigorous go/no-go** — n=13 is 6
-   hand-picked words tested twice, not a proper sample. Not yet decided
-   whether/how to scale this to Phase B.
+   `bnlp-toolkit` stays installed — it works, just wasn't the right tool
+   for *this specific rule*. Worth remembering for anything that's a
+   genuine open-class distinction (e.g. the `কর`/`কার` occupational-
+   suffix-vs-surname problem might be a better fit, since surnames vs.
+   common nouns is closer to what a tagger's actually good at than a
+   closed morphological class was).
 
 ## Current repo state (as of this session's end)
 
-- `to_fix.md` still has its prior 5 open issues (Sanskrit-prefix
-  over-firing beyond the 9-word seed, `কর`/`কার` surname collision, the
-  `া.া.ার` two-wildcard conflation, remaining `sp_final_dict`
-  over-stripping cases, Thompson affixes not added) — none touched this
-  session.
-- `output/corpus_sample_validated.csv`: **380/400 rows reviewed**, 20
-  genuinely-ambiguous rows still blank, awaiting your own linguistic call
-  — unchanged this session, still the same 20 as of Aug 4.
-- Nothing in `grammar.py`/`stemmer.py` changed this session — Phase A was
-  pure feasibility-testing in a scratch script, not committed anywhere
-  (no repo file to point to; the table above is the full record).
-- `bnlp-toolkit` is installed in the **main repo's** `.venv`, not this
-  repo's — this repo still has no `pyproject.toml`/`requirements.txt` of
-  its own (same unresolved packaging gap as ever, see "Not yet resolved"
-  in the parent repo's stemmer-state notes).
+- `to_fix.md` now has **6 open issues** (added one this session: the
+  candrabindu-loss bug in `dot_replace`, found while building the
+  whitelist expansion above).
+- `output/corpus_sample_validated.csv`: still **380/400** reviewed, same
+  20 blank rows as before — untouched this session.
+- Committed and pushed to `origin/main`: the housekeeping revert +
+  `ee_harmony_roots` expansion. Check `git log` for exact hashes if
+  picking this up later; not re-stating them here since STATUS.md itself
+  isn't the source of truth for that, git is.
 
 ## Plan for next session
 
-1. **Decide Phase B scope** for the POS-tagging gate: build a real
-   validation sample (e.g., pull every `ে.ে`-shaped word type above the
-   frequency floor from `lexicon.parquet`, tag them all, hand-review a
-   random subset) rather than trusting 13 hand-picked words. This is the
-   next concrete step for Task #14.
-2. Still pending from before: finish the 20-row `corpus_sample_validated.csv`
-   review (your own judgment).
-3. Still open, untouched: the 5 `to_fix.md` items, in particular the
-   narrowly-scoped `কর`/`কার` surname collision (smallest, most
-   self-contained of the remaining items if you want a quick win instead).
+1. Still pending: finish the 20-row `corpus_sample_validated.csv` review
+   (your own linguistic judgment).
+2. Pick a `to_fix.md` item. Candidates, roughly by effort:
+   - **Candrabindu-loss bug** (new, this session) — fix `dot_replace` to
+     reattach it, would unlock the 5 held-back harmony roots
+     (কাঁদ/বাঁচ/ঘাঁট/কাঁপ/হাঁট).
+   - **`কর`/`কার` surname collision** — smallest untouched item; possibly
+     a genuine fit for `bnlp-toolkit`'s POS/NER tagging now that it's
+     installed and proven to work (surname vs. common-noun is a more
+     POS-taggable distinction than the closed harmony-verb class was).
+   - Sanskrit-prefix over-firing beyond the 9-word seed, or the
+     `া.া.ার` two-wildcard conflation — both still need a lexicon-style
+     check, no new idea for either this session.
+3. Longer-term, still unstarted: packaging as a real importable package,
+   and the stem-level statistics phase once a "good enough" call is made.

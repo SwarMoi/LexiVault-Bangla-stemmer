@@ -193,7 +193,29 @@ sp_final_dict = {
 # real harmony alternation from a coincidental match, so the rule is
 # restricted to only fire for this small, explicitly attested set of
 # roots. See to_fix.md.
-ee_harmony_roots = {'হাস', 'নাচ'}
+#
+# Expanded 2026-08-05 (Task #14 Phase B): this turned out to be a closed
+# lexical class, not something POS-tagging can gate (verb-tagging alone
+# can't distinguish real harmony roots from verbs whose root already ends
+# in e, e.g. দেখ/ফেল -- see to_fix.md). Instead cross-validated candidates
+# from every gate-relevant word type in lexicon.parquet (freq >= 100)
+# against the lexicon itself: a genuine root R should appear as both
+# R+'া' (infinitive/verbal noun, e.g. কাটা) and R+'তে' (purposive
+# infinitive, e.g. কাটতে) with real, comparable frequency; coincidental
+# matches (তা+ার="তার", noun মাথা->"মাথ") don't. Threshold: both forms
+# >=5000 and neither more than 50x the other. 6 candidates that cleared
+# the threshold were held back anyway because the rule's dot_replace
+# mechanism drops the চন্দ্রবিন্দু (candrabindu) their real spelling
+# needs -- কাঁদ/বাঁচ/ঘাঁট/কাঁপ/হাঁট would come out as কাদ/বাচ/ঘাট/কাপ/হাট,
+# still wrong, just wrong in a new way; logged as its own to_fix.md item
+# rather than fixed here.
+ee_harmony_roots = {
+    'হাস', 'নাচ',
+    # 28 below added from the Phase B corpus cross-validation:
+    'জান', 'রাখ', 'মার', 'টান', 'কাট', 'ভাব', 'মান', 'নাম', 'চাপ', 'ভাঙ',
+    'সাজ', 'পার', 'লাগ', 'হান', 'ভাজ', 'ছাপ', 'হার', 'ভাস', 'মাখ', 'ঢাল',
+    'ফাট', 'বাজ', 'থাম', 'মাপ', 'জাগ', 'চাট', 'খাট', 'মাজ',
+}
 ee_harmony_rule_key = 'ে.ে'
 
 # Words confirmed (corpus_sample_validated.csv review) to be fully
